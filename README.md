@@ -107,9 +107,9 @@ flowchart TD
     G --> H[Face Embedding 512-dim]
     H --> I[Registry Matching]
     I --> J{Match Found?}
-    J -->|STRICT ≤0.50| K[Match + Learn]
-    J -->|LOOSE ≤0.60| L[Match Only]
-    J -->|>0.60| M[Unknown - Drop]
+    J -->|STRICT ≤0.80| K[Match + Learn]
+    J -->|LOOSE ≤1.00| L[Match Only]
+    J -->|>1.00| M[Unknown - Drop]
     K --> N[Compress to 2048px JPEG]
     L --> N
     N --> O[Fan-out Routing]
@@ -183,9 +183,11 @@ These rules are **non-negotiable** and enforced at all times:
 
 | Threshold | Distance | Behavior |
 |-----------|----------|----------|
-| STRICT | ≤ 0.50 | Auto-match + learn embedding |
-| LOOSE | ≤ 0.60 | Match only (no learning) |
-| Unknown | > 0.60 | Drop (no output) |
+| STRICT | ≤ 0.80 | Auto-match + learn embedding |
+| LOOSE | ≤ 1.00 | Match only (no learning) |
+| Unknown | > 1.00 | Drop (no output) |
+
+*Note: Distances are Euclidean on L2-normalized 512-dim embeddings (range 0-2).*
 
 ---
 
@@ -375,7 +377,92 @@ Image_Segregation/
 
 ---
 
+---
+
+## Tech Stack
+
+| Layer | Technology | Purpose |
+|-------|------------|---------|
+| **Backend** | [Python 3.10+](https://www.python.org/) | Core runtime |
+| **Web Framework** | [FastAPI](https://fastapi.tiangolo.com/) | REST API & web server |
+| **ASGI Server** | [Uvicorn](https://www.uvicorn.org/) | Production async server |
+| **Database** | [SQLite](https://www.sqlite.org/) | Local embedded database |
+| **Face Detection** | [InsightFace](https://github.com/deepinsight/insightface) | Face detection & recognition |
+| **ML Runtime** | [ONNX Runtime](https://onnxruntime.ai/) | Cross-platform model inference |
+| **Image Processing** | [Pillow (PIL)](https://pillow.readthedocs.io/) | JPEG compression & resizing |
+| **RAW Processing** | [rawpy](https://github.com/letmaik/rawpy) | Sony ARW file conversion |
+| **Array Operations** | [NumPy](https://numpy.org/) | Embedding math & image arrays |
+| **Async HTTP** | [aiofiles](https://github.com/Tinche/aiofiles) | Async file operations |
+| **Frontend** | Vanilla HTML/CSS/JS | No framework dependencies |
+
+---
+
+## Acknowledgments & Credits
+
+This project is built on top of several amazing open-source libraries:
+
+### Core Dependencies
+
+- **[InsightFace](https://github.com/deepinsight/insightface)** - State-of-the-art face detection and recognition library
+  - Model: `buffalo_l` (RetinaFace detection + ArcFace recognition)
+  - License: MIT License
+  - Paper: [ArcFace: Additive Angular Margin Loss for Deep Face Recognition](https://arxiv.org/abs/1801.07698)
+
+- **[ONNX Runtime](https://github.com/microsoft/onnxruntime)** - High-performance ML inference by Microsoft
+  - License: MIT License
+
+- **[FastAPI](https://github.com/tiangolo/fastapi)** - Modern, fast web framework for building APIs
+  - License: MIT License
+
+- **[Pillow](https://github.com/python-pillow/Pillow)** - Python Imaging Library fork
+  - License: HPND License
+
+- **[rawpy](https://github.com/letmaik/rawpy)** - RAW image processing for Python (wrapper around LibRaw)
+  - License: MIT License
+
+- **[NumPy](https://github.com/numpy/numpy)** - Fundamental package for scientific computing
+  - License: BSD License
+
+### Model Weights
+
+The face recognition models are downloaded automatically from InsightFace's model zoo:
+- Detection: RetinaFace (det_10g.onnx)
+- Recognition: ArcFace (w600k_r50.onnx)
+- These models are trained on publicly available face datasets
+
+---
+
 ## License
 
-This is a private, offline tool. No cloud dependencies. No data leaves your machine.
+MIT License
+
+Copyright (c) 2026
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+## Privacy Notice
+
+This is a **fully offline tool**:
+- ✅ No cloud services
+- ✅ No data leaves your machine
+- ✅ All face recognition runs locally
+- ✅ No telemetry or analytics
 
