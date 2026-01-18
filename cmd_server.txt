@@ -1,0 +1,4 @@
+cd E:\Image_Segregation
+.\venv\Scripts\Activate.ps1
+cd backend
+python scripts/run_server.py

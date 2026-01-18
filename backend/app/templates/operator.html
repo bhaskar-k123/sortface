@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Operator Panel - Face Segregation</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <a href="/" class="back-link">← Back</a>
+            <h1>Operator Panel</h1>
+            <p class="subtitle">Configure jobs and seed identities</p>
+        </header>
+        
+        <main class="operator-main">
+            <!-- Job Configuration Section -->
+            <section class="panel">
+                <h2>Job Configuration</h2>
+                <form id="job-config-form" class="form">
+                    <div class="form-group">
+                        <label for="source-root">Source Directory (External HDD - Read Only)</label>
+                        <div class="input-with-button">
+                            <input type="text" id="source-root" name="source_root" 
+                                   placeholder="E:\EventPhotos\Raw" required>
+                            <button type="button" class="btn btn-browse" onclick="openFolderBrowser('source-root')">Browse</button>
+                        </div>
+                        <small>Path to folder containing event photos (.jpg, .jpeg, .arw)</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="output-root">Output Directory (External HDD - Append Only)</label>
+                        <div class="input-with-button">
+                            <input type="text" id="output-root" name="output_root" 
+                                   placeholder="E:\EventPhotos\Sorted" required>
+                            <button type="button" class="btn btn-browse" onclick="openFolderBrowser('output-root')">Browse</button>
+                        </div>
+                        <small>Base path where person folders will be created</small>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Save Configuration</button>
+                </form>
+                <div id="job-config-status" class="status-message"></div>
+            </section>
+            
+            <!-- Person Registry Section -->
+            <section class="panel">
+                <h2>Person Registry</h2>
+                <p class="panel-description">Add reference photos to seed person identities. Each reference must contain exactly one face.</p>
+                
+                <form id="seed-person-form" class="form" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="person-name">Person Name</label>
+                        <input type="text" id="person-name" name="name" 
+                               placeholder="John Smith" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="folder-name">Output Folder Name</label>
+                        <input type="text" id="folder-name" name="folder_name" 
+                               placeholder="john_smith" required>
+                        <small>Folder name under output directory (no spaces recommended)</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="reference-image">Reference Images (select multiple for better accuracy)</label>
+                        <input type="file" id="reference-image" name="reference_image" 
+                               accept=".jpg,.jpeg,.png" multiple required>
+                        <small>Each photo must have exactly ONE face. Select multiple with Ctrl+Click.</small>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Add Person</button>
+                </form>
+                <div id="seed-person-status" class="status-message"></div>
+                
+                <div class="registry-list">
+                    <h3>Registered Persons</h3>
+                    <div id="persons-list" class="persons-grid">
+                        <!-- Populated by JavaScript -->
+                        <p class="loading">Loading...</p>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Job Control Section -->
+            <section class="panel job-control-panel">
+                <h2>Job Control</h2>
+                
+                <!-- Person Selection -->
+                <div class="person-selection-section">
+                    <h3>Search For</h3>
+                    <p class="selection-hint">Select which persons to search for in this job:</p>
+                    <div class="selection-buttons">
+                        <button type="button" class="btn btn-small" onclick="selectAllPersons()">Select All</button>
+                        <button type="button" class="btn btn-small" onclick="selectNoPersons()">Select None</button>
+                    </div>
+                    <div id="person-selection-list" class="person-selection-list">
+                        <p class="loading">Loading persons...</p>
+                    </div>
+                </div>
+                
+                <div class="job-control">
+                    <div id="job-status-display" class="job-status-display">
+                        <p class="loading">Loading...</p>
+                    </div>
+                    <div class="job-buttons">
+                        <button id="btn-start-job" class="btn btn-start" onclick="startJob()" disabled>
+                            ▶ Start Job
+                        </button>
+                        <button id="btn-stop-job" class="btn btn-stop" onclick="stopJob()" disabled>
+                            ⏹ Stop Job
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="worker-status-section">
+                    <h3>Worker Process</h3>
+                    <div id="worker-status" class="worker-status">
+                        <div class="status-indicator offline">
+                            <span class="dot"></span>
+                            <span class="text">Worker Offline</span>
+                        </div>
+                        <p class="worker-hint">Start the worker with: <code>python scripts/run_worker.py</code></p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+    
+    <!-- Folder Browser Modal -->
+    <div id="folder-browser-modal" class="modal" style="display: none;">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>📂 Select Folder</h3>
+                <button class="modal-close" onclick="closeFolderBrowser()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="folder-nav-bar">
+                    <button class="btn btn-nav" onclick="loadFolders(null)" title="Show all drives">🖥️ Drives</button>
+                    <button class="btn btn-nav" onclick="navigateToParent()" id="btn-parent" title="Go up one level">⬆️ Up</button>
+                </div>
+                <div class="folder-path-display">
+                    <span class="path-label">Current:</span>
+                    <span id="current-path" class="current-path">Select a drive...</span>
+                </div>
+                <div id="folder-list" class="folder-list">
+                    <p class="loading">Loading...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeFolderBrowser()">Cancel</button>
+                <button class="btn btn-primary" onclick="selectCurrentFolder()">✓ Select This Folder</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/static/js/operator.js"></script>
+</body>
+</html>

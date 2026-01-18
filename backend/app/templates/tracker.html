@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Progress Tracker - Face Segregation</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <a href="/" class="back-link">← Back</a>
+            <h1>Progress Tracker</h1>
+            <p class="subtitle">Read-only monitoring view</p>
+        </header>
+        
+        <main class="tracker-main">
+            <!-- Overall Progress -->
+            <section class="panel progress-panel">
+                <h2>Overall Progress</h2>
+                <div class="progress-stats">
+                    <div class="stat-card">
+                        <div class="stat-value" id="total-images">--</div>
+                        <div class="stat-label">Total Images</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="processed-images">--</div>
+                        <div class="stat-label">Processed</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="completion-percent">--%</div>
+                        <div class="stat-label">Complete</div>
+                    </div>
+                </div>
+                
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progress-bar" style="width: 0%"></div>
+                </div>
+            </section>
+            
+            <!-- Current Batch Status -->
+            <section class="panel batch-panel">
+                <h2>Current Batch</h2>
+                <div class="batch-info">
+                    <div class="info-row">
+                        <span class="info-label">Super Batch:</span>
+                        <span class="info-value" id="current-superbatch">--</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Atomic Batch:</span>
+                        <span class="info-value" id="current-batch">--</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Image Range:</span>
+                        <span class="info-value" id="image-range">--</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Batch State:</span>
+                        <span class="info-value batch-state" id="batch-state">--</span>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Last Committed -->
+            <section class="panel last-committed-panel">
+                <h2>Last Committed</h2>
+                <div class="last-commit-info">
+                    <div class="info-row">
+                        <span class="info-label">Person Folder:</span>
+                        <span class="info-value" id="last-person">--</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Image:</span>
+                        <span class="info-value" id="last-image">--</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Time:</span>
+                        <span class="info-value" id="last-time">--</span>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Batch History -->
+            <section class="panel history-panel">
+                <h2>Recent Batches</h2>
+                <div id="batch-history" class="batch-history">
+                    <p class="loading">Loading...</p>
+                </div>
+            </section>
+        </main>
+        
+        <footer class="footer">
+            <p>Auto-refreshing every 2 seconds • Read-only view</p>
+        </footer>
+    </div>
+    
+    <script src="/static/js/tracker.js"></script>
+</body>
+</html>
+
