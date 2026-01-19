@@ -20,6 +20,7 @@ async function loadProgress() {
         const data = await response.json();
         
         updateOverallProgress(data);
+        updateTimeTracking(data);
         updateCurrentBatch(data);
         updateLastCommitted(data);
         updateBatchHistory(data.recent_batches || []);
@@ -43,6 +44,33 @@ function updateOverallProgress(data) {
         `${percent.toFixed(1)}%`;
     
     document.getElementById('progress-bar').style.width = `${percent}%`;
+}
+
+/**
+ * Update time tracking section
+ */
+function updateTimeTracking(data) {
+    const container = document.getElementById('time-tracking');
+    
+    if (data.elapsed_formatted || data.estimated_remaining_formatted) {
+        container.style.display = 'block';
+        
+        document.getElementById('elapsed-time').textContent = 
+            data.elapsed_formatted || '--';
+        document.getElementById('remaining-time').textContent = 
+            data.estimated_remaining_formatted ? `~${data.estimated_remaining_formatted}` : '--';
+        
+        // Calculate speed
+        if (data.elapsed_seconds && data.processed_images > 0) {
+            const speed = data.processed_images / data.elapsed_seconds;
+            document.getElementById('processing-speed').textContent = 
+                `${speed.toFixed(2)} img/s`;
+        } else {
+            document.getElementById('processing-speed').textContent = '--';
+        }
+    } else {
+        container.style.display = 'none';
+    }
 }
 
 /**

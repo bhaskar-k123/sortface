@@ -15,6 +15,7 @@ Note: Thresholds updated for normalized embeddings (was 0.5/0.6 which
 is too strict for Euclidean distance on unit vectors).
 """
 import numpy as np
+import asyncio
 from typing import Optional
 
 from ..config import settings
@@ -95,6 +96,8 @@ class FaceMatcher:
         self._selected_person_ids: Optional[set[int]] = (
             set(selected_person_ids) if selected_person_ids else None
         )
+        # Lock for thread-safe embedding learning (prevents nested transactions)
+        self._learn_lock = asyncio.Lock()
     
     async def refresh_centroids(self) -> None:
         """Refresh the centroids cache from database, filtering by selected persons."""
@@ -168,14 +171,16 @@ class FaceMatcher:
             match_type = "strict"
             
             # Learn this embedding (adds to person's collection)
+            # Use lock to prevent concurrent database transactions
             if learn_on_strict:
-                await add_person_embedding(
-                    best_match["person_id"],
-                    embedding,
-                    source_type="learned"
-                )
-                # Refresh centroids since we added an embedding
-                await self.refresh_centroids()
+                async with self._learn_lock:
+                    await add_person_embedding(
+                        best_match["person_id"],
+                        embedding,
+                        source_type="learned"
+                    )
+                    # Refresh centroids since we added an embedding
+                    await self.refresh_centroids()
             
         elif min_dist <= self.threshold_loose:
             match_type = "loose"

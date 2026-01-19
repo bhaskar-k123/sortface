@@ -43,6 +43,7 @@ class StateWriter:
         current_image_range: Optional[str] = None,
         last_committed_person: Optional[str] = None,
         last_committed_image: Optional[str] = None,
+        start_time: Optional[datetime] = None,
     ) -> None:
         """
         Write main progress file.
@@ -52,6 +53,30 @@ class StateWriter:
         completion_percent = 0.0
         if total_images > 0:
             completion_percent = (processed_images / total_images) * 100
+        
+        # Calculate time estimates
+        elapsed_seconds = None
+        estimated_remaining_seconds = None
+        estimated_total_seconds = None
+        elapsed_formatted = None
+        remaining_formatted = None
+        
+        if start_time and processed_images > 0:
+            elapsed = datetime.now() - start_time
+            elapsed_seconds = elapsed.total_seconds()
+            
+            # Calculate rate and estimate remaining time
+            images_per_second = processed_images / elapsed_seconds
+            remaining_images = total_images - processed_images
+            
+            if images_per_second > 0:
+                estimated_remaining_seconds = remaining_images / images_per_second
+                estimated_total_seconds = total_images / images_per_second
+            
+            # Format times
+            elapsed_formatted = self._format_duration(elapsed_seconds)
+            if estimated_remaining_seconds:
+                remaining_formatted = self._format_duration(estimated_remaining_seconds)
         
         data = {
             "total_images": total_images,
@@ -64,11 +89,32 @@ class StateWriter:
             "last_committed_person": last_committed_person,
             "last_committed_image": last_committed_image,
             "last_committed_time": datetime.now().isoformat() if last_committed_image else None,
-            "updated_at": datetime.now().isoformat()
+            "updated_at": datetime.now().isoformat(),
+            # Time tracking
+            "start_time": start_time.isoformat() if start_time else None,
+            "elapsed_seconds": elapsed_seconds,
+            "elapsed_formatted": elapsed_formatted,
+            "estimated_remaining_seconds": estimated_remaining_seconds,
+            "estimated_remaining_formatted": remaining_formatted,
+            "estimated_total_seconds": estimated_total_seconds,
         }
         
         progress_file = self.state_dir / "progress.json"
         self._atomic_write(progress_file, data)
+    
+    def _format_duration(self, seconds: float) -> str:
+        """Format duration in seconds to human-readable string."""
+        if seconds < 60:
+            return f"{int(seconds)}s"
+        elif seconds < 3600:
+            minutes = int(seconds / 60)
+            secs = int(seconds % 60)
+            return f"{minutes}m {secs}s"
+        else:
+            hours = int(seconds / 3600)
+            minutes = int((seconds % 3600) / 60)
+            return f"{hours}h {minutes}m"
+
     
     def write_batch_state(
         self,

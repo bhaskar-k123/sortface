@@ -48,6 +48,9 @@ class WorkerRunner:
             self._current_status = "resuming"
             await self._resume_interrupted()
             
+            # Display CPU usage information
+            self._display_cpu_usage_info()
+            
             self._current_status = "idle"
             
             # Main processing loop
@@ -222,6 +225,37 @@ class WorkerRunner:
                 await update_batch_state(batch["batch_id"], BatchState.COMMITTED)
         
         print("Resume logic complete.")
+    
+    def _display_cpu_usage_info(self):
+        """Display CPU usage configuration and warnings."""
+        import os
+        
+        cpu_count = os.cpu_count() or 4
+        worker_count = settings.get_worker_count()
+        usage_percent = (worker_count / cpu_count) * 100
+        
+        print("\n" + "="*60)
+        print("PARALLEL PROCESSING CONFIGURATION")
+        print("="*60)
+        print(f"CPU Cores Available: {cpu_count}")
+        print(f"CPU Usage Mode: {settings.cpu_usage_mode}")
+        print(f"Workers: {worker_count}")
+        print(f"Estimated CPU Usage: ~{usage_percent:.0f}%")
+        
+        # Display warning if applicable
+        warning = settings.get_cpu_usage_warning()
+        if warning:
+            print(f"\n{warning}")
+        else:
+            print(f"\n✅ CPU usage is within comfortable limits.")
+        
+        print("\nTo change CPU usage:")
+        print("  - Edit hot_storage/config or set environment variable:")
+        print("    CPU_USAGE_MODE=low      (2 workers, ~40% CPU)")
+        print("    CPU_USAGE_MODE=balanced (4 workers, ~67% CPU)")
+        print("    CPU_USAGE_MODE=high     (max workers, ~90% CPU)")
+        print("    CPU_USAGE_MODE=adaptive (auto-detect based on cores)")
+        print("="*60 + "\n")
     
     def _write_heartbeat(self):
         """Write heartbeat file for status monitoring."""

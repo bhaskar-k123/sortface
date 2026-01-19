@@ -36,6 +36,11 @@ class ProgressResponse(BaseModel):
     last_committed_image: Optional[str] = None
     last_committed_time: Optional[str] = None
     recent_batches: list[BatchInfo] = []
+    # Time tracking
+    elapsed_formatted: Optional[str] = None
+    estimated_remaining_formatted: Optional[str] = None
+    elapsed_seconds: Optional[float] = None
+    estimated_remaining_seconds: Optional[float] = None
 
 
 class WorkerStatusResponse(BaseModel):
@@ -95,7 +100,11 @@ async def get_progress():
             last_committed_person=data.get("last_committed_person"),
             last_committed_image=data.get("last_committed_image"),
             last_committed_time=data.get("last_committed_time"),
-            recent_batches=recent_batches
+            recent_batches=recent_batches,
+            elapsed_formatted=data.get("elapsed_formatted"),
+            estimated_remaining_formatted=data.get("estimated_remaining_formatted"),
+            elapsed_seconds=data.get("elapsed_seconds"),
+            estimated_remaining_seconds=data.get("estimated_remaining_seconds")
         )
         
     except Exception as e:

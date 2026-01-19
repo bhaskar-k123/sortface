@@ -62,6 +62,102 @@ class Settings(BaseSettings):
     # Supported input extensions
     supported_extensions: tuple = (".jpg", ".jpeg", ".arw")
     
+    # ========================================================================
+    # PARALLEL PROCESSING SETTINGS
+    # ========================================================================
+    
+    # CPU usage mode: "adaptive", "low", "balanced", "high", or "custom"
+    cpu_usage_mode: str = Field(
+        default="balanced",
+        description="CPU usage preset: adaptive (auto-detect), low (2 workers), balanced (4 workers), high (6+ workers), custom (manual)"
+    )
+    
+    # Manual worker count (only used when cpu_usage_mode="custom")
+    max_parallel_workers: int = Field(
+        default=4,
+        description="Maximum concurrent image processing workers (only used in 'custom' mode)"
+    )
+    
+    # Enable/disable parallel processing entirely
+    enable_parallel_processing: bool = Field(
+        default=True,
+        description="Enable parallel image processing within batches"
+    )
+    
+    # RAW conversion cache
+    enable_raw_cache: bool = Field(
+        default=True,
+        description="Enable RAW conversion caching for faster subsequent runs"
+    )
+    raw_cache_max_size_gb: float = Field(
+        default=5.0,
+        description="Maximum RAW cache size in GB"
+    )
+    
+    # I/O optimization
+    enable_io_prefetch: bool = Field(
+        default=True,
+        description="Enable I/O prefetching for better performance"
+    )
+    
+    # Database optimization
+    batch_db_commits: bool = Field(
+        default=True,
+        description="Batch database commits for better performance"
+    )
+    
+    def get_worker_count(self) -> int:
+        """
+        Get the actual worker count based on cpu_usage_mode.
+        
+        Returns the number of workers to use for parallel processing.
+        """
+        import os
+        
+        cpu_count = os.cpu_count() or 4
+        
+        if self.cpu_usage_mode == "adaptive":
+            # Use 67% of available cores (rounded)
+            workers = max(2, int(cpu_count * 0.67))
+        elif self.cpu_usage_mode == "low":
+            # Conservative: 2 workers (~40% CPU on 6-core)
+            workers = 2
+        elif self.cpu_usage_mode == "balanced":
+            # Balanced: 4 workers (~67% CPU on 6-core)
+            workers = 4
+        elif self.cpu_usage_mode == "high":
+            # Aggressive: use most cores
+            workers = max(4, cpu_count - 1)  # Leave 1 core free
+        elif self.cpu_usage_mode == "custom":
+            # Use manual setting
+            workers = self.max_parallel_workers
+        else:
+            # Fallback to balanced
+            workers = 4
+        
+        # Clamp to reasonable range
+        return max(1, min(workers, cpu_count))
+    
+    def get_cpu_usage_warning(self) -> str | None:
+        """
+        Get a warning message if CPU usage will be high.
+        
+        Returns warning string or None if usage is acceptable.
+        """
+        import os
+        
+        cpu_count = os.cpu_count() or 4
+        workers = self.get_worker_count()
+        usage_percent = (workers / cpu_count) * 100
+        
+        if usage_percent >= 85:
+            return f"⚠️  HIGH CPU USAGE: {workers} workers on {cpu_count} cores (~{usage_percent:.0f}% CPU). System may become sluggish."
+        elif usage_percent >= 70:
+            return f"⚡ MODERATE CPU USAGE: {workers} workers on {cpu_count} cores (~{usage_percent:.0f}% CPU). System will be slightly slower."
+        else:
+            return None
+
+    
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
@@ -91,6 +187,11 @@ class Settings(BaseSettings):
         """Directory for face recognition models."""
         return self.hot_storage_root / "models"
     
+    @property
+    def raw_cache_dir(self) -> Path:
+        """Directory for RAW conversion cache."""
+        return self.hot_storage_root / "raw_cache"
+    
     def ensure_directories(self) -> None:
         """Create all required hot storage directories."""
         self.hot_storage_root.mkdir(parents=True, exist_ok=True)
@@ -99,6 +200,7 @@ class Settings(BaseSettings):
         self.staging_dir.mkdir(parents=True, exist_ok=True)
         self.temp_dir.mkdir(parents=True, exist_ok=True)
         self.models_dir.mkdir(parents=True, exist_ok=True)
+        self.raw_cache_dir.mkdir(parents=True, exist_ok=True)
 
 
 # Global settings instance

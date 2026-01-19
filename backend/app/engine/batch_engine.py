@@ -14,6 +14,8 @@ Rules:
 """
 from pathlib import Path
 from typing import Optional
+from datetime import datetime
+import asyncio
 
 from ..config import settings
 from ..state.state_writer import StateWriter
@@ -74,16 +76,19 @@ class BatchEngine:
         self.current_job_id: Optional[int] = None
         self.total_images: int = 0
         self.processed_images: int = 0
+        self.start_time: Optional[datetime] = None
     
     async def discover_images(self) -> dict:
         """
         Run image discovery and create batches.
         Called once at job start.
         """
-        result = await self.ingest_engine.run()
+        # Skip SHA-256 hashing for faster startup on external HDDs
+        result = await self.ingest_engine.run(compute_hashes=False)
         
         self.current_job_id = result["job_id"]
         self.total_images = result["image_count"]
+        self.start_time = datetime.now()  # Start timer
         
         # Update progress
         self._update_progress(current_batch_state="READY")
@@ -149,11 +154,24 @@ class BatchEngine:
         # Refresh matcher centroids
         await self.matcher.refresh_centroids()
         
-        # Process each image
-        results = []
-        for image in images:
-            result = await self._process_image(image, batch_id)
-            results.append(result)
+        # Process each image (parallel or sequential based on settings)
+        if settings.enable_parallel_processing:
+            # Get adaptive worker count
+            worker_count = settings.get_worker_count()
+            semaphore = asyncio.Semaphore(worker_count)
+            
+            async def process_with_semaphore(image):
+                async with semaphore:
+                    return await self._process_image(image, batch_id)
+            
+            tasks = [process_with_semaphore(img) for img in images]
+            results = await asyncio.gather(*tasks)
+        else:
+            # Sequential processing (fallback)
+            results = []
+            for image in images:
+                result = await self._process_image(image, batch_id)
+                results.append(result)
         
         # ================================================================
         # PHASE 2: COMMITTING (external writes, append-only)
@@ -172,20 +190,31 @@ class BatchEngine:
         # Get results with matches
         image_results = await get_image_results_for_batch(batch_id)
         
-        # Compress and route each image with matches
-        commit_results = []
-        for img_result in image_results:
-            if img_result["matched_count"] > 0:
-                commit_result = await self._commit_image(img_result, batch_id)
-                commit_results.append(commit_result)
-                
-                # Update last committed for progress
+        # Filter images with matches
+        images_with_matches = [r for r in image_results if r["matched_count"] > 0]
+        
+        # Compress and route images in parallel (with limit to avoid overwhelming external HDD)
+        commit_semaphore = asyncio.Semaphore(settings.get_worker_count())
+        
+        async def commit_with_semaphore(img_result):
+            async with commit_semaphore:
+                return await self._commit_image(img_result, batch_id)
+        
+        if images_with_matches:
+            commit_tasks = [commit_with_semaphore(r) for r in images_with_matches]
+            commit_results = await asyncio.gather(*commit_tasks)
+            
+            # Update last committed for progress (from last successful route)
+            for commit_result in reversed(commit_results):
                 if commit_result.get("routed"):
                     last_routed = commit_result["routed"][-1]
                     self._update_progress(
                         last_committed_person=last_routed.get("person_name"),
                         last_committed_image=commit_result.get("output_filename")
                     )
+                    break
+        else:
+            commit_results = []
         
         # ================================================================
         # PHASE 3: COMMITTED
@@ -205,6 +234,9 @@ class BatchEngine:
         await self._update_job_progress(batch["job_id"])
         
         self._update_progress(current_batch_state="COMMITTED")
+        
+        # Print progress summary with time estimates
+        self._print_progress_summary()
         
         # Count skipped files
         skipped_count = sum(1 for r in results if r.get("skipped"))
@@ -425,8 +457,48 @@ class BatchEngine:
             current_batch_state=current_batch_state,
             current_image_range=current_image_range,
             last_committed_person=last_committed_person,
-            last_committed_image=last_committed_image
+            last_committed_image=last_committed_image,
+            start_time=self.start_time
         )
+    
+    def _print_progress_summary(self) -> None:
+        """Print progress summary with time estimates to console."""
+        if self.total_images == 0:
+            return
+        
+        percent = (self.processed_images / self.total_images) * 100
+        
+        # Calculate time estimates
+        if self.start_time and self.processed_images > 0:
+            elapsed = datetime.now() - self.start_time
+            elapsed_seconds = elapsed.total_seconds()
+            
+            images_per_second = self.processed_images / elapsed_seconds
+            remaining_images = self.total_images - self.processed_images
+            
+            if images_per_second > 0:
+                remaining_seconds = remaining_images / images_per_second
+                
+                # Format times
+                elapsed_str = self._format_time(elapsed_seconds)
+                remaining_str = self._format_time(remaining_seconds)
+                
+                print(f"\n📊 Progress: {self.processed_images}/{self.total_images} ({percent:.1f}%)")
+                print(f"⏱️  Elapsed: {elapsed_str} | Remaining: ~{remaining_str}")
+                print(f"⚡ Speed: {images_per_second:.2f} images/sec\n")
+    
+    def _format_time(self, seconds: float) -> str:
+        """Format seconds to human-readable time string."""
+        if seconds < 60:
+            return f"{int(seconds)}s"
+        elif seconds < 3600:
+            minutes = int(seconds / 60)
+            secs = int(seconds % 60)
+            return f"{minutes}m {secs}s"
+        else:
+            hours = int(seconds / 3600)
+            minutes = int((seconds % 3600) / 60)
+            return f"{hours}h {minutes}m"
 
 
 async def run_resume_logic() -> None:
