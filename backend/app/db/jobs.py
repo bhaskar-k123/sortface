@@ -26,59 +26,67 @@ async def get_job_config() -> dict:
     """Get current job configuration."""
     db = await get_db()
     
-    # Ensure selected_person_ids column exists
-    try:
-        cursor = await db.execute(
-            "SELECT source_root, output_root, selected_person_ids FROM job_config WHERE config_id = 1"
-        )
-    except Exception:
-        # Column doesn't exist, add it
-        await db.execute(
-            "ALTER TABLE job_config ADD COLUMN selected_person_ids TEXT"
-        )
-        await db.commit()
-        cursor = await db.execute(
-            "SELECT source_root, output_root, selected_person_ids FROM job_config WHERE config_id = 1"
-        )
-    
-    row = await cursor.fetchone()
+    # Ensure optional columns exist
+    for col in ("selected_person_ids", "selected_image_paths"):
+        try:
+            await db.execute(f"ALTER TABLE job_config ADD COLUMN {col} TEXT")
+            await db.commit()
+        except Exception:
+            pass
+    cursor = await db.execute(
+        "SELECT source_root, output_root, selected_person_ids, selected_image_paths FROM job_config WHERE config_id = 1"
+    )
+    raw = await cursor.fetchone()
+    row = dict(raw) if raw else {}
     
     # Parse selected_person_ids JSON
     selected_ids = []
-    if row and row["selected_person_ids"]:
+    if row.get("selected_person_ids"):
         try:
             selected_ids = json.loads(row["selected_person_ids"])
         except json.JSONDecodeError:
             selected_ids = []
     
+    # Parse selected_image_paths JSON
+    selected_paths = []
+    if row.get("selected_image_paths"):
+        try:
+            selected_paths = json.loads(row["selected_image_paths"])
+        except json.JSONDecodeError:
+            selected_paths = []
+    
     return {
-        "source_root": row["source_root"] if row else None,
-        "output_root": row["output_root"] if row else None,
-        "selected_person_ids": selected_ids
+        "source_root": row.get("source_root"),
+        "output_root": row.get("output_root"),
+        "selected_person_ids": selected_ids,
+        "selected_image_paths": selected_paths if selected_paths else None
     }
 
 
-async def save_job_config(source_root: str, output_root: str, selected_person_ids: list = None) -> None:
+async def save_job_config(
+    source_root: str,
+    output_root: str,
+    selected_person_ids: list = None,
+    selected_image_paths: list = None,
+) -> None:
     """Save job configuration."""
     db = await get_db()
     
-    # Ensure column exists
-    try:
-        await db.execute(
-            "ALTER TABLE job_config ADD COLUMN selected_person_ids TEXT"
-        )
-        await db.commit()
-    except Exception:
-        pass  # Column already exists
+    for col in ("selected_person_ids", "selected_image_paths"):
+        try:
+            await db.execute(f"ALTER TABLE job_config ADD COLUMN {col} TEXT")
+            await db.commit()
+        except Exception:
+            pass
     
-    # Serialize selected_person_ids
     selected_json = json.dumps(selected_person_ids) if selected_person_ids else None
+    selected_paths_json = json.dumps(selected_image_paths) if selected_image_paths else None
     
     await db.execute(
         """UPDATE job_config 
-           SET source_root = ?, output_root = ?, selected_person_ids = ?, updated_at = datetime('now')
+           SET source_root = ?, output_root = ?, selected_person_ids = ?, selected_image_paths = ?, updated_at = datetime('now')
            WHERE config_id = 1""",
-        (source_root, output_root, selected_json)
+        (source_root, output_root, selected_json, selected_paths_json)
     )
     await db.commit()
 
@@ -446,84 +454,4 @@ async def get_image_results_for_batch(batch_id: int) -> list[dict]:
     
     return results
 
-
-# ============================================================================
-# Commit Log
-# ============================================================================
-
-async def add_commit_entry(
-    batch_id: int,
-    image_id: int,
-    person_id: int,
-    output_filename: str,
-    output_path: str
-) -> int:
-    """Add a commit log entry."""
-    db = await get_db()
-    
-    cursor = await db.execute(
-        """INSERT INTO commit_log 
-           (batch_id, image_id, person_id, output_filename, output_path)
-           VALUES (?, ?, ?, ?, ?)""",
-        (batch_id, image_id, person_id, output_filename, output_path)
-    )
-    await db.commit()
-    
-    return cursor.lastrowid
-
-
-async def update_commit_status(commit_id: int, status: str) -> None:
-    """Update commit entry status."""
-    db = await get_db()
-    
-    if status == "verified":
-        await db.execute(
-            "UPDATE commit_log SET status = ?, verified_at = datetime('now') WHERE commit_id = ?",
-            (status, commit_id)
-        )
-    else:
-        await db.execute(
-            "UPDATE commit_log SET status = ? WHERE commit_id = ?",
-            (status, commit_id)
-        )
-    await db.commit()
-
-
-async def get_pending_commits(batch_id: int) -> list[dict]:
-    """Get pending commit entries for a batch."""
-    db = await get_db()
-    
-    cursor = await db.execute(
-        "SELECT * FROM commit_log WHERE batch_id = ? AND status = 'pending'",
-        (batch_id,)
-    )
-    rows = await cursor.fetchall()
-    
-    return [dict(row) for row in rows]
-
-
-async def get_commit_log_for_batch(batch_id: int) -> list[dict]:
-    """Get all commit log entries for a batch."""
-    db = await get_db()
-    
-    cursor = await db.execute(
-        "SELECT * FROM commit_log WHERE batch_id = ?",
-        (batch_id,)
-    )
-    rows = await cursor.fetchall()
-    
-    return [dict(row) for row in rows]
-
-
-async def check_output_exists_in_log(output_path: str) -> bool:
-    """Check if an output path already exists in commit log."""
-    db = await get_db()
-    
-    cursor = await db.execute(
-        "SELECT 1 FROM commit_log WHERE output_path = ? AND status IN ('written', 'verified')",
-        (output_path,)
-    )
-    row = await cursor.fetchone()
-    
-    return row is not None
 

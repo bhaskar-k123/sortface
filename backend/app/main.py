@@ -6,7 +6,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 from .config import settings
 from .api import operator, tracker
@@ -50,8 +50,8 @@ async def operator_ui(request: Request):
     return templates.TemplateResponse("operator.html", {"request": request})
 
 
-@app.get("/tracker", response_class=HTMLResponse)
-async def tracker_ui(request: Request):
-    """Read-only progress tracker UI."""
-    return templates.TemplateResponse("tracker.html", {"request": request})
+@app.get("/tracker")
+async def tracker_redirect():
+    """Progress is now in Operator; redirect."""
+    return RedirectResponse(url="/operator", status_code=302)
 

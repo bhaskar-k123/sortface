@@ -14,6 +14,7 @@
     --accent-cyan: #39d4d4;
     --accent-cyan-dim: #1a7f7f;
     --accent-green: #3fb950;
+    --accent-green-dim: #1a5f1a;
     --accent-yellow: #d29922;
     --accent-red: #f85149;
     --accent-blue: #58a6ff;
@@ -413,7 +414,8 @@ body {
 }
 
 /* Progress Bar */
-.progress-bar-container {
+.progress-bar-container,
+.progress-bar-wrap {
     background: var(--bg-tertiary);
     border-radius: 999px;
     height: 12px;
@@ -426,6 +428,13 @@ body {
     border-radius: 999px;
     transition: width 0.3s ease;
 }
+
+/* Progress section (Operator) */
+.progress-section { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--border-color); }
+.progress-section h3 { font-size: 1rem; margin-bottom: 0.5rem; color: var(--text-secondary); }
+.progress-display { display: flex; flex-direction: column; gap: 0.5rem; }
+.progress-text { font-size: 0.95rem; }
+.progress-time { font-size: 0.85rem; color: var(--text-muted); }
 
 /* Time Tracking */
 .time-tracking {
@@ -652,6 +661,131 @@ body {
     border-top: 1px solid var(--border-color);
 }
 
+#job-config-modal .modal-body {
+    padding: 1.25rem 1.5rem;
+    overflow-y: auto;
+}
+
+#person-selection-modal .modal-body {
+    padding: 1.25rem 1.5rem;
+    overflow-y: auto;
+}
+
+#person-registry-modal .modal-body {
+    padding: 1.25rem 1.5rem;
+    overflow-y: auto;
+}
+
+#person-registry-modal .panel-description {
+    font-size: 1rem;
+    margin-bottom: 0.75rem;
+    color: var(--text-muted);
+}
+
+#person-registry-modal #person-registry-tab-add .panel-description {
+    margin-bottom: 0.5rem;
+}
+
+#person-registry-modal #person-registry-tab-add .form {
+    gap: 0.75rem;
+}
+
+#person-registry-modal #person-registry-tab-add .form-row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+#person-registry-modal #person-registry-tab-add .form-group {
+    gap: 0.35rem;
+}
+
+#person-registry-modal #person-registry-tab-add .form-group input {
+    padding: 0.5rem 0.75rem;
+}
+
+#person-registry-modal #seed-person-status {
+    margin-top: 0.5rem;
+}
+
+#person-registry-modal .modal-header {
+    border-bottom: none;
+}
+
+#person-registry-modal .person-card {
+    border-radius: var(--radius-lg);
+}
+
+#person-registry-modal .person-card-compact {
+    cursor: pointer;
+}
+
+/* Person Details Modal */
+#person-details-modal {
+    z-index: 1100;
+}
+
+#person-details-modal .modal-body {
+    padding: 1.25rem 1.5rem;
+}
+
+#person-details-modal .person-details-row {
+    margin: 0 0 0.5rem 0;
+    font-size: 0.95rem;
+}
+
+#person-details-modal .person-details-row .label {
+    color: var(--text-secondary);
+    margin-right: 0.35rem;
+}
+
+#person-details-modal .person-details-row .value {
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+}
+
+#person-details-modal .add-ref-section {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
+#person-details-modal .add-ref-label {
+    display: block;
+    padding: 0.5rem 0.75rem;
+    background: var(--bg-primary);
+    border: 1px dashed var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--accent-cyan);
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+}
+
+#person-details-modal .add-ref-label:hover {
+    background: var(--accent-cyan-dim);
+    border-color: var(--accent-cyan);
+}
+
+#person-details-modal .add-ref-input {
+    display: none;
+}
+
+#person-details-modal .person-details-delete {
+    margin-top: 1.25rem;
+}
+
+.btn-danger {
+    background: rgba(248, 81, 73, 0.2);
+    color: var(--accent-red);
+    border: 1px solid var(--accent-red);
+}
+
+.btn-danger:hover {
+    background: rgba(248, 81, 73, 0.3);
+}
+
 /* Folder Browser */
 .folder-nav-bar {
     display: flex;
@@ -813,10 +947,37 @@ body {
     border: none;
 }
 
+.job-dirs-display { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem; word-break: break-all; }
+.job-dirs { font-family: var(--font-mono); }
+.job-hint { font-size: 0.8rem; color: var(--accent-yellow); margin-top: 0.5rem; }
+
+.btn-terminate {
+    background: linear-gradient(135deg, #5f3a1a, #d29922);
+    color: white;
+    font-weight: 600;
+    padding: 0.75rem 1.25rem;
+}
+.btn-terminate:hover:not(:disabled) { opacity: 0.9; }
+
+.progress-source-line { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem; word-break: break-all; }
+.progress-current-image { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.35rem; font-family: var(--font-mono); }
+.progress-speed { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.35rem; }
+.progress-dir { font-family: var(--font-mono); color: var(--text-secondary); }
+
 .job-buttons {
     display: flex;
     gap: 1rem;
     justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.job-buttons-sep {
+    width: 1px;
+    background: var(--border-color);
+    align-self: stretch;
+    margin: 0 0.25rem;
+    flex-shrink: 0;
 }
 
 .btn-start {
@@ -842,7 +1003,8 @@ body {
 }
 
 .btn-start:disabled,
-.btn-stop:disabled {
+.btn-stop:disabled,
+.btn-terminate:disabled {
     opacity: 0.4;
     cursor: not-allowed;
 }
@@ -930,7 +1092,7 @@ body {
 
 .selection-hint {
     color: var(--text-muted);
-    font-size: 0.85rem;
+    font-size: 1rem;
     margin-bottom: 0.75rem;
 }
 
@@ -946,9 +1108,9 @@ body {
     gap: 0.5rem;
     max-height: 200px;
     overflow-y: auto;
-    padding: 0.5rem;
+    padding: 0.75rem;
     background: var(--bg-primary);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
     border: 1px solid var(--border-color);
 }
 
@@ -956,27 +1118,21 @@ body {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.5rem 0.75rem;
+    padding: 0.6rem 1rem;
     background: var(--bg-tertiary);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-lg);
     cursor: pointer;
     transition: all 0.2s;
     border: 2px solid transparent;
 }
 
 .person-select-item:hover {
-    background: var(--accent-cyan-dim);
+    background: #282e36;
 }
 
 .person-select-item.selected {
-    border-color: var(--accent-cyan);
-    background: var(--accent-cyan-dim);
-}
-
-.person-select-item input[type="checkbox"] {
-    accent-color: var(--accent-cyan);
-    width: 16px;
-    height: 16px;
+    border-color: var(--accent-green);
+    background: var(--accent-green-dim);
 }
 
 .person-select-item .thumb {
@@ -1000,7 +1156,242 @@ body {
 
 .person-select-item .select-name {
     font-weight: 500;
+    font-size: 1.05rem;
+}
+
+/* Operator 2x2 Layout */
+.operator-page {
+    overflow: hidden;
+}
+.operator-container {
+    padding: 1rem 2rem;
+    max-width: 1400px;
+}
+.operator-header {
+    margin-bottom: 1rem;
+}
+.operator-header .subtitle {
+    display: none;
+}
+.operator-header h1 {
+    font-size: 1.5rem;
+    margin-bottom: 0;
+}
+.operator-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 1rem;
+    min-height: 0;
+    height: calc(100vh - 100px);
+}
+.operator-cell {
+    min-height: 0;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+}
+.operator-cell-left {
+    grid-row: 1 / -1;
+    gap: 0.5rem;
+    overflow: hidden;
+    justify-content: flex-start;
+}
+.operator-cell .panel {
+    margin-bottom: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+#job-config-card,
+#job-control-panel {
+    flex: 0 0 auto;
+}
+#job-status-panel {
+    flex: 1 1 0;
+    min-height: 0;
+    padding: 1rem;
+}
+#job-status-panel .job-control {
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0;
+    gap: 0.75rem;
+}
+#job-status-panel h2 {
+    margin-bottom: 0.5rem;
+}
+#job-progress-panel #progress-section {
+    margin-top: 0.25rem;
+    padding-top: 0;
+    border-top: none;
+}
+#job-progress-panel .worker-status-section {
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border-color);
+}
+#job-progress-panel .worker-status-section h3 {
+    margin-bottom: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+/* Job Config card (compact) */
+.job-config-summary {
+    font-size: 1.05rem;
+    margin-bottom: 0.5rem;
+}
+.job-config-block {
+    margin-bottom: 0.6rem;
+}
+.job-config-block:last-child {
+    margin-bottom: 0;
+}
+.job-config-label {
+    font-weight: 600;
+    font-size: 1.05rem;
+    margin-bottom: 0.25rem;
+    color: var(--text-primary);
+}
+.job-config-value-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.job-config-value-row .btn-small {
+    font-size: 0.95rem;
+}
+.job-config-path {
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    flex: 1 1 0;
+}
+
+/* Person Selection compact */
+.person-selection-compact {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+#person-selection-summary {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}
+
+/* Person Registry card */
+.registry-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+.registry-card-header h2 {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+.btn-add {
+    background: var(--accent-cyan-dim);
+    color: var(--accent-cyan);
+    border-color: var(--accent-cyan);
+}
+.btn-add:hover {
+    background: var(--accent-cyan);
+    color: var(--bg-primary);
+}
+.registry-thumb-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: 12px;
+    width: 100%;
+    max-width: 420px;
+    aspect-ratio: 5 / 2;
+    margin: 1.25rem auto 0;
+    cursor: pointer;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+.registry-thumb-cell {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    overflow: hidden;
+    aspect-ratio: 1;
+    min-width: 0;
+    min-height: 0;
+    max-width: 100%;
+    max-height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.registry-thumb-cell img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.registry-thumb-cell.placeholder {
+    border-style: dashed;
+    background: var(--bg-primary);
+}
+.registry-thumb-cell.add-person-cell {
+    background: var(--accent-cyan-dim);
+    color: var(--accent-cyan);
+    border-color: var(--accent-cyan);
+    font-size: 1.5rem;
+    font-weight: 300;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+.registry-thumb-cell.add-person-cell:hover {
+    background: var(--accent-cyan);
+    color: var(--bg-primary);
+}
+.registry-thumb-cell.plus-badge {
+    background: var(--accent-cyan-dim);
+    color: var(--accent-cyan);
+    font-weight: 600;
     font-size: 0.9rem;
+}
+
+/* Modal tabs */
+.modal-tabs {
+    display: flex;
+    gap: 0;
+    padding: 0 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-tertiary);
+}
+.modal-tab {
+    padding: 0.75rem 1.25rem;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    background: none;
+    color: var(--text-secondary);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+}
+.modal-tab:hover {
+    color: var(--text-primary);
+}
+.modal-tab.active {
+    color: var(--accent-cyan);
+    border-bottom-color: var(--accent-cyan);
+}
+.modal-tab-pane {
+    display: none;
+}
+.modal-tab-pane.active {
+    display: block;
 }
 
 /* Responsive */

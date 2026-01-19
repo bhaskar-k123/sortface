@@ -68,10 +68,11 @@ class WorkerRunner:
                     
                     # Check job status - only process if "running"
                     job_status = await get_job_status()
+                    if job_status == "terminating":
+                        await set_job_status("stopped")
+                        job_status = "stopped"
                     if job_status != "running":
                         self._current_status = "waiting_for_start"
-                        # Reset job initialization when stopped/not running
-                        # so next Start will re-discover images
                         self._job_initialized = False
                         if job_status == "stopped":
                             print("Job stopped. Waiting for start command...")
@@ -98,11 +99,15 @@ class WorkerRunner:
                         else:
                             print("Searching for ALL registered persons")
                         
+                        selected_image_paths = job_config.get("selected_image_paths")
+                        if selected_image_paths:
+                            print(f"Processing only {len(selected_image_paths)} selected image(s)")
                         self.batch_engine = BatchEngine(
                             source_root=Path(job_config["source_root"]),
                             output_root=Path(job_config["output_root"]),
                             state_writer=self.state_writer,
-                            selected_person_ids=selected_person_ids
+                            selected_person_ids=selected_person_ids,
+                            selected_image_paths=selected_image_paths,
                         )
                         # Discover and create batches
                         result = await self.batch_engine.discover_images()
@@ -185,45 +190,40 @@ class WorkerRunner:
     async def _resume_interrupted(self):
         """
         Resume logic on startup.
-        
         - PROCESSING batches → reset to PENDING
-        - COMMITTING batches → run commit reconciliation
+        - COMMITTING batches → re-run commit phase (_commit_batch), then COMMITTED
         - COMMITTED batches → skip forever
         """
         from ..db.jobs import (
             get_batches_by_state,
             update_batch_state,
             get_job_config,
-            BatchState
+            BatchState,
         )
-        from ..engine.routing import CommitReconciliation
         
         print("Running resume logic...")
         
-        # Reset PROCESSING to PENDING
         processing = await get_batches_by_state(BatchState.PROCESSING)
-        for batch in processing:
-            print(f"  Resetting batch {batch['batch_id']} from PROCESSING to PENDING")
-            await update_batch_state(batch["batch_id"], BatchState.PENDING)
+        for b in processing:
+            print(f"  Resetting batch {b['batch_id']} from PROCESSING to PENDING")
+            await update_batch_state(b["batch_id"], BatchState.PENDING)
         
-        # Reconcile COMMITTING batches
         committing = await get_batches_by_state(BatchState.COMMITTING)
         if committing:
             job_config = await get_job_config()
-            output_root = job_config.get("output_root")
-            
-            for batch in committing:
-                print(f"  Reconciling batch {batch['batch_id']} (was COMMITTING)")
-                
-                if output_root:
-                    # Run commit reconciliation
-                    reconciler = CommitReconciliation(Path(output_root))
-                    result = await reconciler.reconcile_batch(batch["batch_id"])
-                    print(f"    Verified: {result['verified']}, Copied: {result['copied']}, Failed: {result['failed']}")
-                
-                # Mark as committed after reconciliation
-                await update_batch_state(batch["batch_id"], BatchState.COMMITTED)
-        
+            src = job_config.get("source_root") or "."
+            out = job_config.get("output_root")
+            if out:
+                be = BatchEngine(
+                    Path(src),
+                    Path(out),
+                    state_writer=self.state_writer,
+                )
+                for b in committing:
+                    print(f"  Finishing batch {b['batch_id']} (was COMMITTING)")
+                    await be._commit_batch(b["batch_id"])
+            else:
+                print("  No output_root in config; cannot finish COMMITTING batches")
         print("Resume logic complete.")
     
     def _display_cpu_usage_info(self):

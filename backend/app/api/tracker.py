@@ -32,15 +32,19 @@ class ProgressResponse(BaseModel):
     current_batch_id: Optional[int] = None
     current_batch_state: Optional[str] = None
     current_image_range: Optional[str] = None
+    current_image: Optional[str] = None
     last_committed_person: Optional[str] = None
     last_committed_image: Optional[str] = None
     last_committed_time: Optional[str] = None
     recent_batches: list[BatchInfo] = []
+    source_root: Optional[str] = None
+    output_root: Optional[str] = None
     # Time tracking
     elapsed_formatted: Optional[str] = None
     estimated_remaining_formatted: Optional[str] = None
     elapsed_seconds: Optional[float] = None
     estimated_remaining_seconds: Optional[float] = None
+    images_per_second: Optional[float] = None
 
 
 class WorkerStatusResponse(BaseModel):
@@ -66,29 +70,6 @@ async def get_progress():
         with open(progress_file, "r") as f:
             data = json.load(f)
         
-        # Load recent batches
-        batches_dir = settings.state_dir / "batches"
-        recent_batches = []
-        
-        if batches_dir.exists():
-            batch_files = sorted(
-                batches_dir.glob("*.json"),
-                key=lambda p: p.stat().st_mtime,
-                reverse=True
-            )[:10]  # Last 10 batches
-            
-            for bf in batch_files:
-                try:
-                    with open(bf, "r") as f:
-                        batch_data = json.load(f)
-                    recent_batches.append(BatchInfo(
-                        batch_id=batch_data.get("batch_id", 0),
-                        state=batch_data.get("state", "unknown"),
-                        image_range=batch_data.get("image_range", "--")
-                    ))
-                except Exception:
-                    pass
-        
         return ProgressResponse(
             total_images=data.get("total_images", 0),
             processed_images=data.get("processed_images", 0),
@@ -97,14 +78,18 @@ async def get_progress():
             current_batch_id=data.get("current_batch_id"),
             current_batch_state=data.get("current_batch_state"),
             current_image_range=data.get("current_image_range"),
+            current_image=data.get("current_image"),
             last_committed_person=data.get("last_committed_person"),
             last_committed_image=data.get("last_committed_image"),
             last_committed_time=data.get("last_committed_time"),
-            recent_batches=recent_batches,
+            recent_batches=[],
+            source_root=data.get("source_root"),
+            output_root=data.get("output_root"),
             elapsed_formatted=data.get("elapsed_formatted"),
             estimated_remaining_formatted=data.get("estimated_remaining_formatted"),
             elapsed_seconds=data.get("elapsed_seconds"),
-            estimated_remaining_seconds=data.get("estimated_remaining_seconds")
+            estimated_remaining_seconds=data.get("estimated_remaining_seconds"),
+            images_per_second=data.get("images_per_second")
         )
         
     except Exception as e:

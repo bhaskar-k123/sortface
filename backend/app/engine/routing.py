@@ -6,23 +6,14 @@ Routing Policy:
 - Compress image ONCE in staging
 - Fan-out copy to ALL matched person folders
 - Append-only: never overwrite existing files
-- Idempotent: same input always produces same output
+- Idempotent: deterministic filename + skip if exists
 """
 import shutil
 from pathlib import Path
 from typing import Optional
 
 from ..config import settings
-from ..storage.paths import (
-    PathManager,
-    generate_deterministic_filename,
-    StorageError,
-)
-from ..db.jobs import (
-    add_commit_entry,
-    update_commit_status,
-    check_output_exists_in_log,
-)
+from ..storage.paths import generate_deterministic_filename
 from ..db.registry import get_person_by_id
 
 
@@ -32,17 +23,10 @@ class RoutingEngine:
     
     Flow:
     1. Image is compressed ONCE to staging directory
-    2. For each matched person:
-       a. Generate deterministic output filename
-       b. Check if already committed (idempotency)
-       c. Copy from staging to person folder
-       d. Record in commit log
+    2. For each matched person: if output exists, skip; else copy from staging
     3. Clean up staging file
     
-    Invariants:
-    - Output folders are append-only (no overwrites)
-    - Deterministic filenames ensure idempotency
-    - Commit log enables crash recovery
+    Idempotency: deterministic filename (stem__hash.jpg) + skip when file exists.
     """
     
     def __init__(
@@ -111,88 +95,36 @@ class RoutingEngine:
     ) -> dict:
         """
         Route image to a single person's folder.
-        
-        Handles:
-        - Idempotency check (skip if already exists)
-        - Append-only enforcement
-        - Commit log recording
+        Idempotent: skip if output exists (deterministic name).
         """
-        # Get person info
         person = await get_person_by_id(person_id)
         if not person:
-            return {
-                "person_id": person_id,
-                "status": "error",
-                "error": "Person not found"
-            }
-        
-        # Determine output path
+            return {"person_id": person_id, "status": "error", "error": "Person not found"}
+
         person_folder = self.output_root / person["output_folder_rel"]
         output_path = person_folder / output_filename
         output_path_str = str(output_path)
-        
-        # Check commit log for idempotency
-        already_committed = await check_output_exists_in_log(output_path_str)
-        if already_committed:
+
+        if output_path.exists():
             return {
                 "person_id": person_id,
                 "person_name": person["name"],
                 "output_path": output_path_str,
                 "status": "skipped",
-                "reason": "already_committed"
+                "reason": "exists",
             }
-        
-        # Check if file exists (append-only)
-        if output_path.exists():
-            # File exists but not in log - add to log as verified
-            commit_id = await add_commit_entry(
-                batch_id, image_id, person_id, output_filename, output_path_str
-            )
-            await update_commit_status(commit_id, "verified")
-            
-            return {
-                "person_id": person_id,
-                "person_name": person["name"],
-                "output_path": output_path_str,
-                "status": "exists",
-                "reason": "file_already_present"
-            }
-        
-        # Create commit log entry (pending)
-        commit_id = await add_commit_entry(
-            batch_id, image_id, person_id, output_filename, output_path_str
-        )
-        
+
         try:
-            # Ensure person folder exists
             person_folder.mkdir(parents=True, exist_ok=True)
-            
-            # Copy from staging to output
-            # Use atomic copy: write to temp then rename
             temp_output = output_path.with_suffix(".tmp")
             shutil.copy2(staged_path, temp_output)
-            
-            # Rename to final name (atomic on same filesystem)
             temp_output.rename(output_path)
-            
-            # Update commit status
-            await update_commit_status(commit_id, "written")
-            
-            # Verify the write
-            if output_path.exists() and output_path.stat().st_size > 0:
-                await update_commit_status(commit_id, "verified")
-                status = "success"
-            else:
-                status = "unverified"
-            
             return {
                 "person_id": person_id,
                 "person_name": person["name"],
                 "output_path": output_path_str,
-                "status": status,
-                "commit_id": commit_id
+                "status": "success",
             }
-            
         except Exception as e:
             return {
                 "person_id": person_id,
@@ -200,7 +132,6 @@ class RoutingEngine:
                 "output_path": output_path_str,
                 "status": "error",
                 "error": str(e),
-                "commit_id": commit_id
             }
     
     def cleanup_staged_file(self, staged_path: Path) -> None:
@@ -216,84 +147,4 @@ class RoutingEngine:
     def get_staging_path(self, filename: str) -> Path:
         """Get the path for a file in staging."""
         return self.staging_dir / filename
-
-
-class CommitReconciliation:
-    """
-    Handles commit reconciliation for crash recovery.
-    
-    Called during resume when a batch was in COMMITTING state.
-    Ensures all pending commits are completed or verified.
-    """
-    
-    def __init__(self, output_root: Path, staging_dir: Optional[Path] = None):
-        self.output_root = output_root
-        self.staging_dir = staging_dir or settings.staging_dir
-    
-    async def reconcile_batch(self, batch_id: int) -> dict:
-        """
-        Reconcile all commits for a batch.
-        
-        Checks each pending commit:
-        - If output exists: mark as verified
-        - If output missing but staged exists: copy and verify
-        - If both missing: mark as failed
-        
-        Returns:
-            Dict with reconciliation results
-        """
-        from ..db.jobs import get_pending_commits
-        
-        pending = await get_pending_commits(batch_id)
-        
-        results = {
-            "verified": 0,
-            "copied": 0,
-            "failed": 0,
-            "details": []
-        }
-        
-        for commit in pending:
-            output_path = Path(commit["output_path"])
-            
-            if output_path.exists():
-                # Output already present - verify
-                await update_commit_status(commit["commit_id"], "verified")
-                results["verified"] += 1
-                results["details"].append({
-                    "commit_id": commit["commit_id"],
-                    "action": "verified"
-                })
-            
-            else:
-                # Try to find in staging and copy
-                staged_path = self.staging_dir / commit["output_filename"]
-                
-                if staged_path.exists():
-                    try:
-                        # Copy from staging
-                        output_path.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.copy2(staged_path, output_path)
-                        await update_commit_status(commit["commit_id"], "verified")
-                        results["copied"] += 1
-                        results["details"].append({
-                            "commit_id": commit["commit_id"],
-                            "action": "copied"
-                        })
-                    except Exception as e:
-                        results["failed"] += 1
-                        results["details"].append({
-                            "commit_id": commit["commit_id"],
-                            "action": "failed",
-                            "error": str(e)
-                        })
-                else:
-                    # Both missing - cannot recover
-                    results["failed"] += 1
-                    results["details"].append({
-                        "commit_id": commit["commit_id"],
-                        "action": "unrecoverable"
-                    })
-        
-        return results
 

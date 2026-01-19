@@ -7,9 +7,9 @@ State Machine:
 
 Rules:
 - PROCESSING: Face detection, embedding, matching. NO external HDD writes.
-- COMMITTING: Compress, fan-out route, append-only writes.
+- COMMITTING: Compress, fan-out route, append-only writes. Idempotent: skip if output exists.
 - On crash during PROCESSING → reset to PENDING
-- On crash during COMMITTING → run commit reconciliation
+- On crash during COMMITTING → re-run commit phase (_commit_batch)
 - COMMITTED batches are never reprocessed
 """
 from pathlib import Path
@@ -30,6 +30,7 @@ from ..db.jobs import (
     get_active_job,
     get_committed_batch_count,
     get_image_count,
+    get_job_status,
 )
 from ..db.registry import get_person_by_id
 from ..storage.paths import compute_file_hash
@@ -37,7 +38,7 @@ from .faces import FaceEngine
 from .match import FaceMatcher
 from .compress import CompressionEngine
 from .raw_convert import RawConversionEngine
-from .routing import RoutingEngine, CommitReconciliation
+from .routing import RoutingEngine
 from .ingest import IngestEngine
 
 
@@ -57,12 +58,14 @@ class BatchEngine:
         source_root: Path,
         output_root: Path,
         state_writer: Optional[StateWriter] = None,
-        selected_person_ids: Optional[list[int]] = None
+        selected_person_ids: Optional[list[int]] = None,
+        selected_image_paths: Optional[list[str]] = None,
     ):
         self.source_root = source_root
         self.output_root = output_root
         self.state_writer = state_writer or StateWriter()
         self.selected_person_ids = selected_person_ids
+        self.selected_image_paths = selected_image_paths
         
         # Initialize engines
         self.face_engine = FaceEngine()
@@ -84,7 +87,10 @@ class BatchEngine:
         Called once at job start.
         """
         # Skip SHA-256 hashing for faster startup on external HDDs
-        result = await self.ingest_engine.run(compute_hashes=False)
+        result = await self.ingest_engine.run(
+            compute_hashes=False,
+            selected_image_paths=self.selected_image_paths,
+        )
         
         self.current_job_id = result["job_id"]
         self.total_images = result["image_count"]
@@ -142,101 +148,49 @@ class BatchEngine:
             current_superbatch=superbatch
         )
         
-        # Write batch state file
-        self.state_writer.write_batch_state(
-            batch_id=batch_id,
-            state="PROCESSING",
-            start_idx=batch["start_idx"],
-            end_idx=batch["end_idx"],
-            image_range=image_range
-        )
-        
         # Refresh matcher centroids
         await self.matcher.refresh_centroids()
         
-        # Process each image (parallel or sequential based on settings)
-        if settings.enable_parallel_processing:
-            # Get adaptive worker count
-            worker_count = settings.get_worker_count()
-            semaphore = asyncio.Semaphore(worker_count)
-            
-            async def process_with_semaphore(image):
-                async with semaphore:
-                    return await self._process_image(image, batch_id)
-            
-            tasks = [process_with_semaphore(img) for img in images]
-            results = await asyncio.gather(*tasks)
-        else:
-            # Sequential processing (fallback)
-            results = []
-            for image in images:
-                result = await self._process_image(image, batch_id)
-                results.append(result)
+        # Process images in chunks; check for "terminating" between chunks to stop analysis early
+        TERMINATE_CHUNK = 10
+        worker_count = settings.get_worker_count() if settings.enable_parallel_processing else 1
+        semaphore = asyncio.Semaphore(worker_count)
         
-        # ================================================================
-        # PHASE 2: COMMITTING (external writes, append-only)
-        # ================================================================
+        async def process_with_semaphore(image):
+            self._update_progress(
+                current_batch_id=batch_id,
+                current_batch_state="PROCESSING",
+                current_image_range=image_range,
+                current_superbatch=superbatch,
+                current_image=Path(image["source_path"]).name,
+            )
+            async with semaphore:
+                return await self._process_image(image, batch_id)
         
-        await update_batch_state(batch_id, BatchState.COMMITTING)
-        self._update_progress(current_batch_state="COMMITTING")
-        self.state_writer.write_batch_state(
-            batch_id=batch_id,
-            state="COMMITTING",
-            start_idx=batch["start_idx"],
-            end_idx=batch["end_idx"],
-            image_range=image_range
-        )
-        
-        # Get results with matches
-        image_results = await get_image_results_for_batch(batch_id)
-        
-        # Filter images with matches
-        images_with_matches = [r for r in image_results if r["matched_count"] > 0]
-        
-        # Compress and route images in parallel (with limit to avoid overwhelming external HDD)
-        commit_semaphore = asyncio.Semaphore(settings.get_worker_count())
-        
-        async def commit_with_semaphore(img_result):
-            async with commit_semaphore:
-                return await self._commit_image(img_result, batch_id)
-        
-        if images_with_matches:
-            commit_tasks = [commit_with_semaphore(r) for r in images_with_matches]
-            commit_results = await asyncio.gather(*commit_tasks)
-            
-            # Update last committed for progress (from last successful route)
-            for commit_result in reversed(commit_results):
-                if commit_result.get("routed"):
-                    last_routed = commit_result["routed"][-1]
+        results = []
+        for i in range(0, len(images), TERMINATE_CHUNK):
+            if await get_job_status() == "terminating":
+                break
+            chunk = images[i : i + TERMINATE_CHUNK]
+            if settings.enable_parallel_processing:
+                chunk_results = await asyncio.gather(*[process_with_semaphore(im) for im in chunk])
+            else:
+                chunk_results = []
+                for im in chunk:
                     self._update_progress(
-                        last_committed_person=last_routed.get("person_name"),
-                        last_committed_image=commit_result.get("output_filename")
+                        current_batch_id=batch_id,
+                        current_batch_state="PROCESSING",
+                        current_image_range=image_range,
+                        current_superbatch=superbatch,
+                        current_image=Path(im["source_path"]).name,
                     )
-                    break
-        else:
-            commit_results = []
+                    chunk_results.append(await self._process_image(im, batch_id))
+            results.extend(chunk_results)
         
-        # ================================================================
-        # PHASE 3: COMMITTED
-        # ================================================================
-        
-        await update_batch_state(batch_id, BatchState.COMMITTED)
-        self.state_writer.write_batch_state(
-            batch_id=batch_id,
-            state="COMMITTED",
-            start_idx=batch["start_idx"],
-            end_idx=batch["end_idx"],
-            image_range=image_range
-        )
-        
-        # Update processed count
-        self.processed_images += len(images)
-        await self._update_job_progress(batch["job_id"])
-        
-        self._update_progress(current_batch_state="COMMITTED")
-        
-        # Print progress summary with time estimates
-        self._print_progress_summary()
+        # PHASE 2 & 3: COMMITTING then COMMITTED (writes only for results we have)
+        await update_batch_state(batch_id, BatchState.COMMITTING)
+        self._update_progress(current_batch_state="COMMITTING", current_image=None)
+        commit_results = await self._commit_batch(batch_id)
         
         # Count skipped files
         skipped_count = sum(1 for r in results if r.get("skipped"))
@@ -244,7 +198,7 @@ class BatchEngine:
         return {
             "batch_id": batch_id,
             "status": "committed",
-            "images_processed": len(images),
+            "images_processed": len(results),
             "faces_detected": sum(r.get("face_count", 0) for r in results),
             "matches": sum(r.get("matched_count", 0) for r in results),
             "unknowns": sum(r.get("unknown_count", 0) for r in results),
@@ -426,16 +380,56 @@ class BatchEngine:
             # Clean up staging file
             self.routing_engine.cleanup_staged_file(staged_path)
     
-    async def _update_job_progress(self, job_id: int) -> None:
-        """Update job progress in database."""
+    async def _commit_batch(self, batch_id: int) -> list:
+        """
+        Run the commit phase for a batch: compress and route matches, then mark COMMITTED.
+        Used by process_batch and by resume when a batch was left in COMMITTING.
+        """
+        batch = await get_batch_by_id(batch_id)
+        if not batch:
+            return []
+        job_id = batch["job_id"]
+        if self.total_images <= 0:
+            self.total_images = await get_image_count(job_id)
+
+        image_results = await get_image_results_for_batch(batch_id)
+        images_with_matches = [r for r in image_results if r["matched_count"] > 0]
+
+        commit_semaphore = asyncio.Semaphore(settings.get_worker_count())
+
+        async def commit_with_semaphore(img_result):
+            async with commit_semaphore:
+                return await self._commit_image(img_result, batch_id)
+
+        if images_with_matches:
+            commit_results = await asyncio.gather(*[commit_with_semaphore(r) for r in images_with_matches])
+            for commit_result in reversed(commit_results):
+                if commit_result.get("routed"):
+                    last_routed = commit_result["routed"][-1]
+                    self._update_progress(
+                        last_committed_person=last_routed.get("person_name"),
+                        last_committed_image=commit_result.get("output_filename"),
+                    )
+                    break
+        else:
+            commit_results = []
+
+        await update_batch_state(batch_id, BatchState.COMMITTED)
+        await self._update_job_progress(job_id, batch_result_count=len(image_results))
+        self._update_progress(current_batch_state="COMMITTED")
+        self._print_progress_summary()
+        return commit_results
+
+    async def _update_job_progress(self, job_id: int, batch_result_count: int | None = None) -> None:
+        """Update job progress in database. batch_result_count: for partial (terminated) batches."""
         committed_batches = await get_committed_batch_count(job_id)
         batch_size = settings.atomic_batch_size
-        processed = committed_batches * batch_size
-        
-        # Cap at total (last batch may be smaller)
+        if batch_result_count is not None:
+            processed = (committed_batches - 1) * batch_size + batch_result_count
+        else:
+            processed = committed_batches * batch_size
         if processed > self.total_images:
             processed = self.total_images
-        
         await update_job_image_counts(job_id, self.total_images, processed)
         self.processed_images = processed
     
@@ -445,8 +439,9 @@ class BatchEngine:
         current_batch_state: Optional[str] = None,
         current_image_range: Optional[str] = None,
         current_superbatch: Optional[str] = None,
+        current_image: Optional[str] = None,
         last_committed_person: Optional[str] = None,
-        last_committed_image: Optional[str] = None
+        last_committed_image: Optional[str] = None,
     ) -> None:
         """Write progress state file for tracker UI."""
         self.state_writer.write_progress(
@@ -456,9 +451,12 @@ class BatchEngine:
             current_batch_id=current_batch_id,
             current_batch_state=current_batch_state,
             current_image_range=current_image_range,
+            current_image=current_image,
             last_committed_person=last_committed_person,
             last_committed_image=last_committed_image,
-            start_time=self.start_time
+            start_time=self.start_time,
+            source_root=str(self.source_root) if self.source_root else None,
+            output_root=str(self.output_root) if self.output_root else None,
         )
     
     def _print_progress_summary(self) -> None:
@@ -499,40 +497,4 @@ class BatchEngine:
             hours = int(seconds / 3600)
             minutes = int((seconds % 3600) / 60)
             return f"{hours}h {minutes}m"
-
-
-async def run_resume_logic() -> None:
-    """
-    Run resume logic on worker startup.
-    
-    - PROCESSING batches → reset to PENDING
-    - COMMITTING batches → run commit reconciliation
-    - COMMITTED batches → skip forever
-    """
-    from ..db.jobs import get_batches_by_state, get_job_config
-    
-    print("Running batch resume logic...")
-    
-    # Reset PROCESSING to PENDING
-    processing = await get_batches_by_state(BatchState.PROCESSING)
-    for batch in processing:
-        print(f"  Resetting batch {batch['batch_id']} from PROCESSING to PENDING")
-        await update_batch_state(batch["batch_id"], BatchState.PENDING)
-    
-    # Reconcile COMMITTING batches
-    committing = await get_batches_by_state(BatchState.COMMITTING)
-    for batch in committing:
-        print(f"  Reconciling batch {batch['batch_id']} (was COMMITTING)")
-        
-        # Get job config for output root
-        config = await get_job_config()
-        if config.get("output_root"):
-            reconciler = CommitReconciliation(Path(config["output_root"]))
-            result = await reconciler.reconcile_batch(batch["batch_id"])
-            print(f"    Verified: {result['verified']}, Copied: {result['copied']}, Failed: {result['failed']}")
-        
-        # Mark as committed (reconciliation complete)
-        await update_batch_state(batch["batch_id"], BatchState.COMMITTED)
-    
-    print("Resume logic complete.")
 
