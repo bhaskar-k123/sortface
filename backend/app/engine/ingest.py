@@ -18,6 +18,34 @@ from ..db.jobs import (
 from ..storage.paths import compute_file_hash
 
 
+def _format_priority(ext: str) -> int:
+    """Lower = prefer. JPG/JPEG are faster (no RAW conversion); ARW is slower."""
+    e = ext.lower() if isinstance(ext, str) else ""
+    if e in (".jpg", ".jpeg"):
+        return 0
+    if e == ".arw":
+        return 1
+    return 2
+
+
+def _one_per_stem_prefer_fast(paths: list[Path]) -> list[Path]:
+    """
+    When multiple files share the same stem (e.g. pic1.jpg and pic1.arw),
+    keep only one: prefer .jpg/.jpeg over .arw (faster to process).
+    """
+    by_stem: dict[str, list[Path]] = {}
+    for p in paths:
+        s = p.stem
+        if s not in by_stem:
+            by_stem[s] = []
+        by_stem[s].append(p)
+    out = []
+    for stem, group in by_stem.items():
+        best = min(group, key=lambda p: (_format_priority(p.suffix), str(p)))
+        out.append(best)
+    return sorted(out, key=str)
+
+
 class ImageDiscovery:
     """
     Discovers and catalogs images from a source directory.
@@ -51,6 +79,8 @@ class ImageDiscovery:
         
         # Sort for deterministic ordering
         image_paths = sorted(set(image_paths))
+        # If both pic1.jpg and pic1.arw exist, keep only the faster one (.jpg/.jpeg over .arw)
+        image_paths = _one_per_stem_prefer_fast(image_paths)
         
         # Yield with ordering index
         for idx, path in enumerate(image_paths):
@@ -87,7 +117,12 @@ class IngestEngine:
         self.batch_size = settings.atomic_batch_size
         self.discovery = ImageDiscovery(source_root)
     
-    async def run(self, compute_hashes: bool = True, force_rediscover: bool = True) -> dict:
+    async def run(
+        self,
+        compute_hashes: bool = True,
+        force_rediscover: bool = True,
+        selected_image_paths: list[str] | None = None,
+    ) -> dict:
         """
         Run the full ingestion process.
         
@@ -95,6 +130,9 @@ class IngestEngine:
             compute_hashes: If True, compute SHA-256 for all images
                            (slower but enables deduplication)
             force_rediscover: If True, always re-discover images (default)
+            selected_image_paths: If non-empty, only these paths are processed
+                                 (must be under source_root, .jpg/.jpeg/.arw).
+                                 If None or empty, discover all in source.
         
         Returns:
             Dict with job_id, image_count, batch_count
@@ -118,9 +156,29 @@ class IngestEngine:
             str(self.output_root)
         )
         
-        # Discover and catalog images
+        # Build image list: either from selected paths or full discovery
+        if selected_image_paths:
+            # Validate, then one-per-stem (prefer .jpg/.jpeg over .arw), then sort
+            exts = {e.lower() for e in self.discovery.supported_extensions}
+            path_objs = [Path(p) for p in selected_image_paths]
+            path_objs = [p for p in path_objs if p.is_file() and p.suffix.lower() in exts]
+            path_objs = _one_per_stem_prefer_fast(path_objs)
+            ordered = [
+                {
+                    "source_path": str(p.resolve()),
+                    "filename": p.name,
+                    "extension": p.suffix.lower(),
+                    "ordering_idx": i,
+                }
+                for i, p in enumerate(path_objs)
+            ]
+            image_stream = ordered
+        else:
+            image_stream = list(self.discovery.discover())
+        
+        # Catalog images
         images = []
-        for image_info in self.discovery.discover():
+        for image_info in image_stream:
             if compute_hashes:
                 try:
                     image_info["sha256"] = compute_file_hash(

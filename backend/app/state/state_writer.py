@@ -20,11 +20,7 @@ class StateWriter:
     
     def __init__(self):
         self.state_dir = settings.state_dir
-        self.batches_dir = self.state_dir / "batches"
-        
-        # Ensure directories exist
         self.state_dir.mkdir(parents=True, exist_ok=True)
-        self.batches_dir.mkdir(parents=True, exist_ok=True)
     
     def _atomic_write(self, file_path: Path, data: dict) -> None:
         """Write data atomically using temp file + rename."""
@@ -41,9 +37,12 @@ class StateWriter:
         current_batch_id: Optional[int] = None,
         current_batch_state: Optional[str] = None,
         current_image_range: Optional[str] = None,
+        current_image: Optional[str] = None,
         last_committed_person: Optional[str] = None,
         last_committed_image: Optional[str] = None,
         start_time: Optional[datetime] = None,
+        source_root: Optional[str] = None,
+        output_root: Optional[str] = None,
     ) -> None:
         """
         Write main progress file.
@@ -60,18 +59,20 @@ class StateWriter:
         estimated_total_seconds = None
         elapsed_formatted = None
         remaining_formatted = None
+        images_per_second = None
         
         if start_time and processed_images > 0:
             elapsed = datetime.now() - start_time
             elapsed_seconds = elapsed.total_seconds()
             
             # Calculate rate and estimate remaining time
-            images_per_second = processed_images / elapsed_seconds
+            rate = processed_images / elapsed_seconds
+            images_per_second = round(rate, 2)
             remaining_images = total_images - processed_images
             
-            if images_per_second > 0:
-                estimated_remaining_seconds = remaining_images / images_per_second
-                estimated_total_seconds = total_images / images_per_second
+            if rate > 0:
+                estimated_remaining_seconds = remaining_images / rate
+                estimated_total_seconds = total_images / rate
             
             # Format times
             elapsed_formatted = self._format_duration(elapsed_seconds)
@@ -86,10 +87,13 @@ class StateWriter:
             "current_batch_id": current_batch_id,
             "current_batch_state": current_batch_state,
             "current_image_range": current_image_range,
+            "current_image": current_image,
             "last_committed_person": last_committed_person,
             "last_committed_image": last_committed_image,
             "last_committed_time": datetime.now().isoformat() if last_committed_image else None,
             "updated_at": datetime.now().isoformat(),
+            "source_root": source_root,
+            "output_root": output_root,
             # Time tracking
             "start_time": start_time.isoformat() if start_time else None,
             "elapsed_seconds": elapsed_seconds,
@@ -97,6 +101,7 @@ class StateWriter:
             "estimated_remaining_seconds": estimated_remaining_seconds,
             "estimated_remaining_formatted": remaining_formatted,
             "estimated_total_seconds": estimated_total_seconds,
+            "images_per_second": images_per_second,
         }
         
         progress_file = self.state_dir / "progress.json"
@@ -115,40 +120,7 @@ class StateWriter:
             minutes = int((seconds % 3600) / 60)
             return f"{hours}h {minutes}m"
 
-    
-    def write_batch_state(
-        self,
-        batch_id: int,
-        state: str,
-        start_idx: int,
-        end_idx: int,
-        image_range: Optional[str] = None
-    ) -> None:
-        """
-        Write individual batch state file.
-        
-        Used for batch history in tracker UI.
-        """
-        if image_range is None:
-            image_range = f"IMG_{start_idx:05d} - IMG_{end_idx:05d}"
-        
-        data = {
-            "batch_id": batch_id,
-            "state": state,
-            "start_idx": start_idx,
-            "end_idx": end_idx,
-            "image_range": image_range,
-            "updated_at": datetime.now().isoformat()
-        }
-        
-        batch_file = self.batches_dir / f"{batch_id}.json"
-        self._atomic_write(batch_file, data)
-    
     def clear_batch_states(self) -> None:
-        """Clear all batch state files (for new job)."""
-        for batch_file in self.batches_dir.glob("*.json"):
-            try:
-                batch_file.unlink()
-            except Exception:
-                pass
+        """No-op; batch state files removed. Kept for API compatibility."""
+        pass
 

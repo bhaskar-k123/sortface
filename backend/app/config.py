@@ -84,28 +84,6 @@ class Settings(BaseSettings):
         description="Enable parallel image processing within batches"
     )
     
-    # RAW conversion cache
-    enable_raw_cache: bool = Field(
-        default=True,
-        description="Enable RAW conversion caching for faster subsequent runs"
-    )
-    raw_cache_max_size_gb: float = Field(
-        default=5.0,
-        description="Maximum RAW cache size in GB"
-    )
-    
-    # I/O optimization
-    enable_io_prefetch: bool = Field(
-        default=True,
-        description="Enable I/O prefetching for better performance"
-    )
-    
-    # Database optimization
-    batch_db_commits: bool = Field(
-        default=True,
-        description="Batch database commits for better performance"
-    )
-    
     def get_worker_count(self) -> int:
         """
         Get the actual worker count based on cpu_usage_mode.
@@ -187,20 +165,13 @@ class Settings(BaseSettings):
         """Directory for face recognition models."""
         return self.hot_storage_root / "models"
     
-    @property
-    def raw_cache_dir(self) -> Path:
-        """Directory for RAW conversion cache."""
-        return self.hot_storage_root / "raw_cache"
-    
     def ensure_directories(self) -> None:
         """Create all required hot storage directories."""
         self.hot_storage_root.mkdir(parents=True, exist_ok=True)
         self.state_dir.mkdir(parents=True, exist_ok=True)
-        (self.state_dir / "batches").mkdir(parents=True, exist_ok=True)
         self.staging_dir.mkdir(parents=True, exist_ok=True)
         self.temp_dir.mkdir(parents=True, exist_ok=True)
         self.models_dir.mkdir(parents=True, exist_ok=True)
-        self.raw_cache_dir.mkdir(parents=True, exist_ok=True)
 
 
 # Global settings instance

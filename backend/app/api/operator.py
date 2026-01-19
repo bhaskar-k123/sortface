@@ -170,11 +170,80 @@ async def browse_folders(path: Optional[str] = Query(None)):
     )
 
 
+# ============================================================================
+# Image Picker (for "only selected images" mode)
+# ============================================================================
+
+class ImageInFolderItem(BaseModel):
+    source_path: str
+    filename: str
+
+
+class ImagesInFolderResponse(BaseModel):
+    images: list[ImageInFolderItem]
+
+
+def _path_under_root(p: Path, root: Path) -> bool:
+    """True if p is under root (or equal)."""
+    try:
+        p.resolve().relative_to(root.resolve())
+        return True
+    except ValueError:
+        return False
+
+
+@router.get("/images-in-folder", response_model=ImagesInFolderResponse)
+async def images_in_folder(
+    path: str = Query(..., description="Folder path (under source_root when it is configured)"),
+    recursive: bool = Query(False, description="Include images in subfolders"),
+):
+    """
+    List image files (.jpg, .jpeg, .arw) in a folder. If recursive=True, include all subfolders.
+    When source_root is configured, path must be under it.
+    """
+    path = (path or "").strip()
+    if not path:
+        raise HTTPException(status_code=400, detail="Path is required")
+
+    config = await get_job_config()
+    source_root = config.get("source_root")
+
+    folder = Path(path).resolve()
+    if not folder.exists():
+        raise HTTPException(status_code=404, detail=f"Path not found: {path}")
+    if not folder.is_dir():
+        raise HTTPException(status_code=400, detail="Path must be a directory")
+
+    if source_root:
+        src = Path(source_root).resolve()
+        if not _path_under_root(folder, src):
+            raise HTTPException(status_code=400, detail="Path must be under source directory. Save Configuration first if you changed the source.")
+
+    exts = {e.lower() for e in settings.supported_extensions}
+    images = []
+    if recursive:
+        for ext in exts:
+            for f in folder.rglob(f"*{ext}"):
+                if f.is_file():
+                    images.append(ImageInFolderItem(source_path=str(f.resolve()), filename=f.name))
+            for f in folder.rglob(f"*{ext.upper()}"):
+                if f.is_file():
+                    images.append(ImageInFolderItem(source_path=str(f.resolve()), filename=f.name))
+        images = list({(x.source_path, x.filename): x for x in images}.values())
+        images.sort(key=lambda x: x.source_path)
+    else:
+        for f in sorted(folder.iterdir()):
+            if f.is_file() and f.suffix.lower() in exts:
+                images.append(ImageInFolderItem(source_path=str(f.resolve()), filename=f.name))
+    return ImagesInFolderResponse(images=images)
+
+
 class JobConfigRequest(BaseModel):
     """Request model for job configuration."""
     source_root: str
     output_root: str
     selected_person_ids: Optional[list[int]] = None  # None means all persons
+    selected_image_paths: Optional[list[str]] = None  # None or empty means all images in source
 
 
 class JobConfigResponse(BaseModel):
@@ -182,6 +251,7 @@ class JobConfigResponse(BaseModel):
     source_root: Optional[str] = None
     output_root: Optional[str] = None
     selected_person_ids: Optional[list[int]] = None  # None or empty means all persons
+    selected_image_paths: Optional[list[str]] = None  # None or empty means all images in source
 
 
 class PersonResponse(BaseModel):
@@ -204,7 +274,8 @@ async def get_job_configuration():
     return JobConfigResponse(
         source_root=config.get("source_root"),
         output_root=config.get("output_root"),
-        selected_person_ids=config.get("selected_person_ids")
+        selected_person_ids=config.get("selected_person_ids"),
+        selected_image_paths=config.get("selected_image_paths"),
     )
 
 
@@ -227,6 +298,32 @@ async def set_job_configuration(request: JobConfigRequest):
             detail=f"Source path is not a directory: {request.source_root}"
         )
     
+    # Validate selected_image_paths when provided
+    if request.selected_image_paths:
+        for p in request.selected_image_paths:
+            pp = Path(p)
+            if not pp.exists():
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Selected image does not exist: {p}"
+                )
+            if not pp.is_file():
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Selected path is not a file: {p}"
+                )
+            if not _path_under_root(pp, source_path):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Selected image must be under source directory: {p}"
+                )
+            ext = pp.suffix.lower()
+            if ext not in (".jpg", ".jpeg", ".arw"):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unsupported extension for: {p} (use .jpg, .jpeg, .arw)"
+                )
+    
     # Create output directory if needed
     try:
         output_path.mkdir(parents=True, exist_ok=True)
@@ -237,7 +334,12 @@ async def set_job_configuration(request: JobConfigRequest):
         )
     
     # Save configuration
-    await save_job_config(request.source_root, request.output_root, request.selected_person_ids)
+    await save_job_config(
+        request.source_root,
+        request.output_root,
+        request.selected_person_ids,
+        request.selected_image_paths,
+    )
     
     return {"status": "ok", "message": "Configuration saved"}
 
@@ -432,9 +534,11 @@ async def remove_person(person_id: int):
 
 class JobStatusResponse(BaseModel):
     """Response model for job status."""
-    status: str  # configured, ready, running, completed, stopped
+    status: str  # configured, ready, running, completed, stopped, terminating
     can_start: bool
     message: str
+    source_root: Optional[str] = None
+    output_root: Optional[str] = None
 
 
 @router.get("/job-status", response_model=JobStatusResponse)
@@ -443,30 +547,32 @@ async def get_job_status_endpoint():
     config = await get_job_config()
     status = await get_job_status()
     persons = await get_all_persons()
-    
-    # Determine if job can start
+
     has_config = bool(config.get("source_root") and config.get("output_root"))
     has_persons = len(persons) > 0
-    can_start = has_config and has_persons and status not in ("running",)
-    
-    # Generate status message
+    can_start = has_config and has_persons and status not in ("running", "terminating")
+
     if not has_config:
         message = "Configure source and output directories first"
     elif not has_persons:
         message = "Add at least one person to the registry"
     elif status == "running":
         message = "Job is running..."
+    elif status == "terminating":
+        message = "Terminating: no new photos will be analysed. Finishing writes to output, then stopping."
     elif status == "completed":
         message = "Job completed! Click Start to run again"
     elif status == "stopped":
         message = "Job stopped. Click Start to resume"
     else:
         message = "Ready to start"
-    
+
     return JobStatusResponse(
         status=status or "configured",
         can_start=can_start,
-        message=message
+        message=message,
+        source_root=config.get("source_root"),
+        output_root=config.get("output_root"),
     )
 
 
@@ -508,7 +614,17 @@ async def start_job():
 
 @router.post("/stop-job")
 async def stop_job():
-    """Stop the processing job."""
+    """Stop after the current batch completes (including writes)."""
     await set_job_status("stopped")
-    return {"status": "ok", "message": "Job stopped"}
+    return {"status": "ok", "message": "Job will stop after the current batch completes."}
+
+
+@router.post("/terminate-job")
+async def terminate_job():
+    """
+    Terminate: no new photos will be matched/analysed. Only in-flight writes
+    to output will finish, then the job stops.
+    """
+    await set_job_status("terminating")
+    return {"status": "ok", "message": "Terminating: finishing writes, then stopping."}
 

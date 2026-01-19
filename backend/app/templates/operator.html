@@ -6,128 +6,228 @@
     <title>Operator Panel - Face Segregation</title>
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
-<body>
-    <div class="container">
-        <header class="header">
+<body class="operator-page">
+    <div class="container operator-container">
+        <header class="header operator-header">
             <a href="/" class="back-link">← Back</a>
             <h1>Operator Panel</h1>
             <p class="subtitle">Configure jobs and seed identities</p>
         </header>
         
-        <main class="operator-main">
-            <!-- Job Configuration Section -->
-            <section class="panel">
-                <h2>Job Configuration</h2>
+        <main class="operator-grid">
+            <!-- Left: Job Config + Search For (stacked, small gap) -->
+            <div class="operator-cell operator-cell-left">
+                <section class="panel" id="job-config-card">
+                    <h2>Job Configuration</h2>
+                    <div class="job-config-summary">
+                        <div class="job-config-block">
+                            <div class="job-config-label">Source</div>
+                            <div class="job-config-value-row">
+                                <span id="job-config-source" class="job-config-path">—</span>
+                                <button type="button" class="btn btn-small" onclick="openJobConfigModal()">Edit</button>
+                            </div>
+                        </div>
+                        <div class="job-config-block">
+                            <div class="job-config-label">Output</div>
+                            <div class="job-config-value-row">
+                                <span id="job-config-output" class="job-config-path">—</span>
+                                <button type="button" class="btn btn-small" onclick="openJobConfigModal()">Edit</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="job-config-card-status" class="status-message"></div>
+                </section>
+                <section class="panel" id="job-control-panel">
+                    <h2>Search For</h2>
+                    <div id="person-selection-compact" class="person-selection-compact">
+                        <span id="person-selection-summary">—</span>
+                        <button type="button" class="btn btn-small" onclick="openPersonSelectionModal()">Change</button>
+                    </div>
+                </section>
+                <section class="panel" id="job-status-panel">
+                    <h2>Job Status</h2>
+                    <div class="job-control">
+                        <div id="job-status-display" class="job-status-display">
+                            <p class="loading">Loading...</p>
+                        </div>
+                        <div class="job-buttons">
+                            <button id="btn-start-job" class="btn btn-start" onclick="startJob()" disabled>▶ Start Job</button>
+                            <span class="job-buttons-sep" aria-hidden="true"></span>
+                            <button id="btn-stop-job" class="btn btn-stop" onclick="stopJob()" disabled>⏹ Stop Job</button>
+                            <button id="btn-terminate-job" class="btn btn-terminate" onclick="terminateJob()" disabled>⏹ Terminate</button>
+                        </div>
+                        <p id="job-terminate-hint" class="job-hint" style="display: none;">Terminate: no new photos analysed; only in-flight writes to output will finish, then stop.</p>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Top Right: Job Progress -->
+            <div class="operator-cell">
+                <section class="panel" id="job-progress-panel">
+                    <h2>Job Progress</h2>
+                    <div id="progress-section" class="progress-section" style="display: none;">
+                        <div id="progress-source-line" class="progress-source-line"></div>
+                        <div id="progress-current-image" class="progress-current-image" style="display: none;"></div>
+                        <div id="progress-speed" class="progress-speed" style="display: none;"></div>
+                        <div id="progress-display" class="progress-display">
+                            <div class="progress-bar-wrap"><div id="progress-bar" class="progress-bar" style="width: 0%;"></div></div>
+                            <div id="progress-text" class="progress-text">—</div>
+                            <div id="progress-time" class="progress-time"></div>
+                        </div>
+                    </div>
+                    <div class="worker-status-section">
+                        <h3>Worker Process</h3>
+                        <div id="worker-status" class="worker-status">
+                            <div class="status-indicator offline">
+                                <span class="dot"></span>
+                                <span class="text">Worker Offline</span>
+                            </div>
+                            <p class="worker-hint">Start the worker with: <code>python scripts/run_worker.py</code></p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Bottom Right: Person Registry -->
+            <div class="operator-cell">
+                <section class="panel person-registry-card" id="person-registry-card">
+                    <div class="registry-card-header">
+                        <h2>Person Registry</h2>
+                    </div>
+                    <div id="registry-thumb-grid" class="registry-thumb-grid" onclick="openPersonRegistryModal('list')">
+                        <!-- 5 thumbs + add circle, filled by JS -->
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Job Config Modal -->
+    <div id="job-config-modal" class="modal" style="display: none;">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>Job Configuration</h3>
+                <button class="modal-close" onclick="closeJobConfigModal()">&times;</button>
+            </div>
+            <div class="modal-body">
                 <form id="job-config-form" class="form">
                     <div class="form-group">
                         <label for="source-root">Source Directory (External HDD - Read Only)</label>
                         <div class="input-with-button">
-                            <input type="text" id="source-root" name="source_root" 
-                                   placeholder="E:\EventPhotos\Raw" required>
+                            <input type="text" id="source-root" name="source_root" placeholder="E:\EventPhotos\Raw" required>
                             <button type="button" class="btn btn-browse" onclick="openFolderBrowser('source-root')">Browse</button>
                         </div>
                         <small>Path to folder containing event photos (.jpg, .jpeg, .arw)</small>
                     </div>
-                    
                     <div class="form-group">
                         <label for="output-root">Output Directory (External HDD - Append Only)</label>
                         <div class="input-with-button">
-                            <input type="text" id="output-root" name="output_root" 
-                                   placeholder="E:\EventPhotos\Sorted" required>
+                            <input type="text" id="output-root" name="output_root" placeholder="E:\EventPhotos\Sorted" required>
                             <button type="button" class="btn btn-browse" onclick="openFolderBrowser('output-root')">Browse</button>
                         </div>
                         <small>Base path where person folders will be created</small>
                     </div>
-                    
                     <button type="submit" class="btn btn-primary">Save Configuration</button>
                 </form>
                 <div id="job-config-status" class="status-message"></div>
-            </section>
-            
-            <!-- Person Registry Section -->
-            <section class="panel">
-                <h2>Person Registry</h2>
-                <p class="panel-description">Add reference photos to seed person identities. Each reference must contain exactly one face.</p>
-                
-                <form id="seed-person-form" class="form" enctype="multipart/form-data">
-                    <div class="form-group">
-                        <label for="person-name">Person Name</label>
-                        <input type="text" id="person-name" name="name" 
-                               placeholder="John Smith" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="folder-name">Output Folder Name</label>
-                        <input type="text" id="folder-name" name="folder_name" 
-                               placeholder="john_smith" required>
-                        <small>Folder name under output directory (no spaces recommended)</small>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="reference-image">Reference Images (select multiple for better accuracy)</label>
-                        <input type="file" id="reference-image" name="reference_image" 
-                               accept=".jpg,.jpeg,.png" multiple required>
-                        <small>Each photo must have exactly ONE face. Select multiple with Ctrl+Click.</small>
-                    </div>
-                    
-                    <button type="submit" class="btn btn-primary">Add Person</button>
-                </form>
-                <div id="seed-person-status" class="status-message"></div>
-                
-                <div class="registry-list">
-                    <h3>Registered Persons</h3>
-                    <div id="persons-list" class="persons-grid">
-                        <!-- Populated by JavaScript -->
-                        <p class="loading">Loading...</p>
-                    </div>
-                </div>
-            </section>
-            
-            <!-- Job Control Section -->
-            <section class="panel job-control-panel">
-                <h2>Job Control</h2>
-                
-                <!-- Person Selection -->
-                <div class="person-selection-section">
-                    <h3>Search For</h3>
-                    <p class="selection-hint">Select which persons to search for in this job:</p>
-                    <div class="selection-buttons">
-                        <button type="button" class="btn btn-small" onclick="selectAllPersons()">Select All</button>
-                        <button type="button" class="btn btn-small" onclick="selectNoPersons()">Select None</button>
-                    </div>
-                    <div id="person-selection-list" class="person-selection-list">
-                        <p class="loading">Loading persons...</p>
-                    </div>
-                </div>
-                
-                <div class="job-control">
-                    <div id="job-status-display" class="job-status-display">
-                        <p class="loading">Loading...</p>
-                    </div>
-                    <div class="job-buttons">
-                        <button id="btn-start-job" class="btn btn-start" onclick="startJob()" disabled>
-                            ▶ Start Job
-                        </button>
-                        <button id="btn-stop-job" class="btn btn-stop" onclick="stopJob()" disabled>
-                            ⏹ Stop Job
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="worker-status-section">
-                    <h3>Worker Process</h3>
-                    <div id="worker-status" class="worker-status">
-                        <div class="status-indicator offline">
-                            <span class="dot"></span>
-                            <span class="text">Worker Offline</span>
-                        </div>
-                        <p class="worker-hint">Start the worker with: <code>python scripts/run_worker.py</code></p>
-                    </div>
-                </div>
-            </section>
-        </main>
+            </div>
+        </div>
     </div>
-    
+
+    <!-- Person Selection Modal -->
+    <div id="person-selection-modal" class="modal" style="display: none;">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>Search For</h3>
+                <button class="modal-close" onclick="closePersonSelectionModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="selection-hint">Select which persons to search for in this job:</p>
+                <div class="selection-buttons">
+                    <button type="button" class="btn btn-small" onclick="selectAllPersons()">Select All</button>
+                    <button type="button" class="btn btn-small" onclick="selectNoPersons()">Select None</button>
+                </div>
+                <div id="person-selection-list" class="person-selection-list">
+                    <p class="loading">Loading persons...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closePersonSelectionModal()">Close</button>
+                <button class="btn btn-primary" onclick="applyPersonSelection()">Apply</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Person Registry Modal (tabs: Add Person | Registered Persons) -->
+    <div id="person-registry-modal" class="modal" style="display: none;">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>Person Registry</h3>
+                <button class="modal-close" onclick="closePersonRegistryModal()">&times;</button>
+            </div>
+            <div class="modal-tabs">
+                <button type="button" class="modal-tab active" data-tab="add" onclick="switchPersonRegistryTab('add')">Add Person</button>
+                <button type="button" class="modal-tab" data-tab="list" onclick="switchPersonRegistryTab('list')">Registered Persons</button>
+            </div>
+            <div class="modal-body">
+                <div id="person-registry-tab-add" class="modal-tab-pane active">
+                    <p class="panel-description">Add reference photos to seed person identities. Each reference must contain exactly one face.</p>
+                    <form id="seed-person-form" class="form" enctype="multipart/form-data">
+                        <div class="form-row form-row-2">
+                            <div class="form-group">
+                                <label for="person-name">Person Name</label>
+                                <input type="text" id="person-name" name="name" placeholder="John Smith" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="folder-name">Output Folder Name</label>
+                                <input type="text" id="folder-name" name="folder_name" placeholder="john_smith" required>
+                                <small>Folder name under output directory (no spaces recommended)</small>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="reference-image">Reference Images (select multiple for better accuracy)</label>
+                            <input type="file" id="reference-image" name="reference_image" accept=".jpg,.jpeg,.png" multiple required>
+                            <small>Each photo must have exactly ONE face. Select multiple with Ctrl+Click.</small>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Add Person</button>
+                    </form>
+                    <div id="seed-person-status" class="status-message"></div>
+                </div>
+                <div id="person-registry-tab-list" class="modal-tab-pane" style="display: none;">
+                    <div class="registry-list">
+                        <div id="persons-list" class="persons-grid">
+                            <p class="loading">Loading...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closePersonRegistryModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Person Details Modal (opened when clicking a person in Registered Persons) -->
+    <div id="person-details-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="person-details-name">—</h3>
+                <button class="modal-close" onclick="closePersonDetailsModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="person-details-row"><span class="label">Output folder:</span> <span id="person-details-folder" class="value">—</span></p>
+                <p class="person-details-row"><span class="label">References:</span> <span id="person-details-embeddings" class="value">—</span></p>
+                <div class="add-ref-section">
+                    <label class="add-ref-label" for="person-details-ref-input">➕ Add more references (select multiple)</label>
+                    <input type="file" id="person-details-ref-input" class="add-ref-input" accept=".jpg,.jpeg,.png" multiple onchange="onPersonDetailsAddRef(this)">
+                </div>
+                <div class="person-details-delete">
+                    <button type="button" class="btn btn-danger" onclick="deletePersonFromDetailsFromModal()">Delete Person</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Folder Browser Modal -->
     <div id="folder-browser-modal" class="modal" style="display: none;">
         <div class="modal-content modal-large">

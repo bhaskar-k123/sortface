@@ -7,36 +7,30 @@
 let selectedPersonIds = new Set();
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Load existing data
     loadPersons();
-    loadPersonSelection();
     loadJobConfig();
     loadJobStatus();
-    
-    // Check status periodically
+    loadProgress();
+    loadRegistryCard();
     checkWorkerStatus();
     setInterval(checkWorkerStatus, 3000);
-    setInterval(loadJobStatus, 3000);
-    
-    // Setup form handlers
+    setInterval(refreshJobAndProgress, 1000);
     setupJobConfigForm();
     setupSeedPersonForm();
 });
 
 /**
- * Load and display registered persons
+ * Load and display registered persons (into #persons-list in Person Registry modal)
  */
 async function loadPersons() {
     const container = document.getElementById('persons-list');
-    
+    if (!container) return;
     try {
         const response = await fetch('/api/operator/persons');
         const data = await response.json();
-        
         if (data.persons && data.persons.length > 0) {
             container.innerHTML = data.persons.map(person => `
-                <div class="person-card">
-                    <button class="delete-btn" onclick="deletePerson(${person.person_id}, '${escapeHtml(person.name)}')" title="Delete person">🗑️</button>
+                <div class="person-card person-card-compact" data-person-id="${person.person_id}" data-person-name="${escapeHtml(person.name)}" data-folder="${escapeHtml(person.output_folder_rel)}" data-embedding-count="${person.embedding_count}" onclick="openPersonDetailsModal(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openPersonDetailsModal(this);}" role="button" tabindex="0">
                     <div class="person-avatar">
                         <img src="/api/operator/persons/${person.person_id}/thumbnail" 
                              alt="${escapeHtml(person.name)}"
@@ -44,16 +38,6 @@ async function loadPersons() {
                         <div class="avatar-placeholder" style="display:none;">👤</div>
                     </div>
                     <div class="name">${escapeHtml(person.name)}</div>
-                    <div class="folder">📁 ${escapeHtml(person.output_folder_rel)}</div>
-                    <div class="embeddings">${person.embedding_count} reference(s)</div>
-                    <div class="add-ref-section">
-                        <label class="add-ref-label" for="ref-input-${person.person_id}">
-                            ➕ Add more references (select multiple)
-                        </label>
-                        <input type="file" id="ref-input-${person.person_id}" class="add-ref-input"
-                               accept=".jpg,.jpeg,.png" multiple 
-                               onchange="addMultipleReferences(${person.person_id}, this)">
-                    </div>
                 </div>
             `).join('');
         } else {
@@ -66,53 +50,99 @@ async function loadPersons() {
 }
 
 /**
- * Load person selection checkboxes for job configuration
+ * Load the registry thumb grid on the Person Registry card: 5 person thumbnails + 1 add circle.
+ * Layout: row 1 = 3 persons, row 2 = 2 persons + add circle.
  */
-async function loadPersonSelection() {
-    const container = document.getElementById('person-selection-list');
-    
+async function loadRegistryCard() {
+    const grid = document.getElementById('registry-thumb-grid');
+    if (!grid) return;
     try {
         const response = await fetch('/api/operator/persons');
         const data = await response.json();
-        
-        if (data.persons && data.persons.length > 0) {
-            container.innerHTML = data.persons.map(person => `
-                <label class="person-select-item ${selectedPersonIds.has(person.person_id) ? 'selected' : ''}"
-                       onclick="togglePersonSelection(${person.person_id}, this)">
-                    <input type="checkbox" 
-                           id="select-person-${person.person_id}" 
-                           value="${person.person_id}"
-                           ${selectedPersonIds.has(person.person_id) ? 'checked' : ''}>
-                    <img src="/api/operator/persons/${person.person_id}/thumbnail" 
-                         class="thumb" alt=""
-                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                    <span class="thumb-placeholder" style="display:none;">👤</span>
-                    <span class="select-name">${escapeHtml(person.name)}</span>
-                </label>
-            `).join('');
-        } else {
-            container.innerHTML = '<p class="loading">No persons registered. Add persons first.</p>';
+        const persons = (data.persons || []).slice(0, 9);
+        const cells = [];
+        for (let i = 0; i < 9; i++) {
+            const p = persons[i];
+            if (p) {
+                cells.push(`<div class="registry-thumb-cell"><img src="/api/operator/persons/${p.person_id}/thumbnail" alt="" onerror="this.parentElement.classList.add('placeholder'); this.remove();"></div>`);
+            } else {
+                cells.push('<div class="registry-thumb-cell placeholder"></div>');
+            }
+        }
+        cells.push('<div class="registry-thumb-cell add-person-cell" onclick="event.stopPropagation(); openPersonRegistryModal(\'add\');" title="Add person">+</div>');
+        grid.innerHTML = cells.join('');
+    } catch (error) {
+        grid.innerHTML = Array(9).fill('<div class="registry-thumb-cell placeholder"></div>').join('') +
+            '<div class="registry-thumb-cell add-person-cell" onclick="event.stopPropagation(); openPersonRegistryModal(\'add\');" title="Add person">+</div>';
+        console.error('Error loading registry card:', error);
+    }
+}
+
+/**
+ * Update Job Config card summary from form/state
+ */
+function updateJobConfigCard() {
+    var srcEl = document.getElementById('job-config-source');
+    var outEl = document.getElementById('job-config-output');
+    if (!srcEl || !outEl) return;
+    var srcInp = document.getElementById('source-root');
+    var outInp = document.getElementById('output-root');
+    srcEl.textContent = (srcInp && srcInp.value) ? (srcInp.value.length > 50 ? srcInp.value.slice(0, 47) + '...' : srcInp.value) : '—';
+    outEl.textContent = (outInp && outInp.value) ? (outInp.value.length > 50 ? outInp.value.slice(0, 47) + '...' : outInp.value) : '—';
+}
+
+/**
+ * Load person selection list (modal) and compact summary
+ */
+async function loadPersonSelection() {
+    const container = document.getElementById('person-selection-list');
+    const summaryEl = document.getElementById('person-selection-summary');
+    try {
+        const response = await fetch('/api/operator/persons');
+        const data = await response.json();
+        const persons = data.persons || [];
+        if (container) {
+            if (persons.length > 0) {
+                container.innerHTML = persons.map(person => `
+                    <div class="person-select-item ${selectedPersonIds.has(person.person_id) ? 'selected' : ''}"
+                         data-person-id="${person.person_id}" role="button" tabindex="0"
+                         onclick="togglePersonSelection(${person.person_id}, this)"
+                         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();togglePersonSelection(${person.person_id}, this);}">
+                        <img src="/api/operator/persons/${person.person_id}/thumbnail" class="thumb" alt=""
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <span class="thumb-placeholder" style="display:none;">👤</span>
+                        <span class="select-name">${escapeHtml(person.name)}</span>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = '<p class="loading">No persons registered. Add persons first.</p>';
+            }
+        }
+        if (summaryEl) {
+            var M = persons.length;
+            var N = selectedPersonIds.size;
+            if (M === 0) summaryEl.textContent = 'No persons';
+            else if (N === 0) summaryEl.textContent = 'None selected';
+            else if (N === M) summaryEl.textContent = 'All selected';
+            else summaryEl.textContent = N + ' of ' + M + ' selected';
         }
     } catch (error) {
-        container.innerHTML = '<p class="loading">Error loading persons</p>';
+        if (container) container.innerHTML = '<p class="loading">Error loading persons</p>';
+        if (summaryEl) summaryEl.textContent = '—';
         console.error('Error loading person selection:', error);
     }
 }
 
 /**
- * Toggle person selection
+ * Toggle person selection (click on person card)
  */
 function togglePersonSelection(personId, element) {
-    const checkbox = element.querySelector('input[type="checkbox"]');
-    
     if (selectedPersonIds.has(personId)) {
         selectedPersonIds.delete(personId);
         element.classList.remove('selected');
-        checkbox.checked = false;
     } else {
         selectedPersonIds.add(personId);
         element.classList.add('selected');
-        checkbox.checked = true;
     }
 }
 
@@ -121,11 +151,11 @@ function togglePersonSelection(personId, element) {
  */
 function selectAllPersons() {
     document.querySelectorAll('.person-select-item').forEach(item => {
-        const checkbox = item.querySelector('input[type="checkbox"]');
-        const personId = parseInt(checkbox.value);
-        selectedPersonIds.add(personId);
-        item.classList.add('selected');
-        checkbox.checked = true;
+        const personId = parseInt(item.getAttribute('data-person-id'), 10);
+        if (!isNaN(personId)) {
+            selectedPersonIds.add(personId);
+            item.classList.add('selected');
+        }
     });
 }
 
@@ -134,11 +164,11 @@ function selectAllPersons() {
  */
 function selectNoPersons() {
     document.querySelectorAll('.person-select-item').forEach(item => {
-        const checkbox = item.querySelector('input[type="checkbox"]');
-        const personId = parseInt(checkbox.value);
-        selectedPersonIds.delete(personId);
-        item.classList.remove('selected');
-        checkbox.checked = false;
+        const personId = parseInt(item.getAttribute('data-person-id'), 10);
+        if (!isNaN(personId)) {
+            selectedPersonIds.delete(personId);
+            item.classList.remove('selected');
+        }
     });
 }
 
@@ -197,19 +227,18 @@ async function addMultipleReferences(personId, inputElement) {
     }
     alert(message);
     
-    // Refresh to show updated count
     loadPersons();
-    
-    // Clear the input for next use
+    loadRegistryCard();
     inputElement.value = '';
 }
 
 /**
- * Delete a person from the registry
+ * Delete a person from the registry.
+ * @returns {Promise<boolean>} true if deleted, false if cancelled or error
  */
 async function deletePerson(personId, personName) {
     if (!confirm(`Are you sure you want to delete "${personName}"?\n\nThis will remove them from the registry but NOT delete any already sorted photos.`)) {
-        return;
+        return false;
     }
     
     try {
@@ -218,17 +247,21 @@ async function deletePerson(personId, personName) {
         });
         
         if (response.ok) {
+            selectedPersonIds.delete(personId);
             loadPersons();
-            loadPersonSelection();  // Refresh selection list too
-            selectedPersonIds.delete(personId);  // Remove from selection
-            loadJobStatus(); // Update job status (may affect can_start)
+            loadPersonSelection();
+            loadRegistryCard();
+            loadJobStatus();
+            return true;
         } else {
             const error = await response.json();
             alert(error.detail || 'Failed to delete person');
+            return false;
         }
     } catch (error) {
         alert('Network error. Please try again.');
         console.error('Error deleting person:', error);
+        return false;
     }
 }
 
@@ -250,19 +283,12 @@ async function loadJobConfig() {
         // Load selected persons
         if (data.selected_person_ids && data.selected_person_ids.length > 0) {
             selectedPersonIds = new Set(data.selected_person_ids);
-            // Update checkboxes after a short delay (let person selection load first)
-            setTimeout(() => {
-                data.selected_person_ids.forEach(id => {
-                    const checkbox = document.getElementById(`select-person-${id}`);
-                    if (checkbox) {
-                        checkbox.checked = true;
-                        checkbox.closest('.person-select-item')?.classList.add('selected');
-                    }
-                });
-            }, 500);
         }
+        updateJobConfigCard();
+        loadPersonSelection();
     } catch (error) {
         console.error('Error loading job config:', error);
+        loadPersonSelection();
     }
 }
 
@@ -338,33 +364,96 @@ function formatWorkerStatus(status) {
 // ============================================================================
 
 /**
+ * Refresh job status and progress (called every 1s by setInterval)
+ */
+function refreshJobAndProgress() {
+    loadJobStatus();
+    loadProgress();
+}
+
+/**
  * Load and display job status
  */
 async function loadJobStatus() {
-    const display = document.getElementById('job-status-display');
-    const startBtn = document.getElementById('btn-start-job');
-    const stopBtn = document.getElementById('btn-stop-job');
-    
+    var display = document.getElementById('job-status-display');
+    var startBtn = document.getElementById('btn-start-job');
+    var stopBtn = document.getElementById('btn-stop-job');
+    var termBtn = document.getElementById('btn-terminate-job');
+    var hint = document.getElementById('job-terminate-hint');
+    if (!display) return;
     try {
-        const response = await fetch('/api/operator/job-status');
-        const data = await response.json();
-        
-        // Update display
-        const statusColor = getStatusColor(data.status);
-        display.innerHTML = `
-            <div class="status-text" style="color: ${statusColor};">
-                Job Status: <strong>${data.status.toUpperCase()}</strong>
-            </div>
-            <span class="status-message">${data.message}</span>
-        `;
-        
-        // Update buttons
+        var r = await fetch('/api/operator/job-status');
+        var data = await r.json();
+        var statusColor = getStatusColor(data.status);
+        display.innerHTML = '<div class="status-text" style="color: ' + statusColor + ';">Job Status: <strong>' + (data.status || 'configured').toUpperCase() + '</strong></div><span class="status-message">' + escapeHtml(data.message || '') + '</span>';
         startBtn.disabled = !data.can_start;
         stopBtn.disabled = data.status !== 'running';
-        
-    } catch (error) {
+        if (termBtn) termBtn.disabled = data.status !== 'running';
+        if (hint) hint.style.display = data.status === 'terminating' ? 'block' : 'none';
+    } catch (e) {
         display.innerHTML = '<p class="loading">Error loading status</p>';
-        console.error('Error loading job status:', error);
+        console.error('Error loading job status:', e);
+    }
+}
+
+/**
+ * Load and display progress (from progress.json via tracker API)
+ */
+async function loadProgress() {
+    var section = document.getElementById('progress-section');
+    var sourceLine = document.getElementById('progress-source-line');
+    var currentImageEl = document.getElementById('progress-current-image');
+    var speedEl = document.getElementById('progress-speed');
+    var bar = document.getElementById('progress-bar');
+    var text = document.getElementById('progress-text');
+    var time = document.getElementById('progress-time');
+    if (!section || !bar || !text) return;
+    try {
+        var r = await fetch('/api/tracker/progress');
+        var d = await r.json();
+        var total = d.total_images || 0;
+        var done = d.processed_images || 0;
+        var pct = d.completion_percent || 0;
+        if (total > 0) {
+            section.style.display = 'block';
+            if (sourceLine) {
+                var src = d.source_root || '';
+                var out = d.output_root || '';
+                if (src) sourceLine.innerHTML = 'Processing: <span class="progress-dir">' + escapeHtml(src) + '</span>' + (out ? ' &nbsp;|&nbsp; Output: <span class="progress-dir">' + escapeHtml(out) + '</span>' : '');
+                else sourceLine.innerHTML = '';
+            }
+            if (currentImageEl) {
+                if (d.current_image && String(d.current_image).trim()) {
+                    currentImageEl.textContent = 'Current: ' + escapeHtml(d.current_image);
+                    currentImageEl.style.display = 'block';
+                } else {
+                    currentImageEl.style.display = 'none';
+                    currentImageEl.textContent = '';
+                }
+            }
+            if (speedEl) {
+                if (d.images_per_second != null && d.images_per_second > 0) {
+                    speedEl.textContent = 'Speed: ' + Number(d.images_per_second).toFixed(2) + ' img/s';
+                    speedEl.style.display = 'block';
+                } else {
+                    speedEl.style.display = 'none';
+                    speedEl.textContent = '';
+                }
+            }
+            bar.style.width = pct + '%';
+            text.textContent = done + ' / ' + total + ' (' + pct.toFixed(1) + '%)';
+            if (d.current_batch_state || d.current_image_range) {
+                text.textContent += ' — ' + (d.current_batch_state || '') + (d.current_image_range ? ' ' + d.current_image_range : '');
+            }
+            var t = '';
+            if (d.elapsed_formatted) t += 'Elapsed: ' + d.elapsed_formatted;
+            if (d.estimated_remaining_formatted) t += (t ? ' | ' : '') + 'ETC: ~' + d.estimated_remaining_formatted;
+            time.textContent = t || '—';
+        } else {
+            section.style.display = 'none';
+        }
+    } catch (e) {
+        section.style.display = 'none';
     }
 }
 
@@ -372,10 +461,11 @@ async function loadJobStatus() {
  * Get color for job status
  */
 function getStatusColor(status) {
-    const colors = {
+    var colors = {
         'configured': 'var(--text-secondary)',
         'ready': 'var(--accent-cyan)',
         'running': 'var(--accent-green)',
+        'terminating': 'var(--accent-yellow)',
         'stopped': 'var(--accent-yellow)',
         'completed': 'var(--accent-green)',
     };
@@ -411,70 +501,65 @@ async function startJob() {
 }
 
 /**
- * Stop the processing job
+ * Stop the processing job (current batch finishes, including writes, then stops)
  */
 async function stopJob() {
-    if (!confirm('Are you sure you want to stop the job?\n\nThe current batch will complete before stopping.')) {
-        return;
-    }
-    
-    const stopBtn = document.getElementById('btn-stop-job');
+    if (!confirm('Stop the job? The current batch will complete (including writes to output), then the job will stop.')) return;
+    var stopBtn = document.getElementById('btn-stop-job');
     stopBtn.disabled = true;
     stopBtn.textContent = 'Stopping...';
-    
     try {
-        const response = await fetch('/api/operator/stop-job', {
-            method: 'POST'
-        });
-        
-        if (response.ok) {
-            loadJobStatus();
-        } else {
-            const error = await response.json();
-            alert(error.detail || 'Failed to stop job');
-        }
-    } catch (error) {
-        alert('Network error. Please try again.');
-        console.error('Error stopping job:', error);
-    } finally {
-        stopBtn.textContent = '⏹ Stop Job';
-        loadJobStatus();
-    }
+        var r = await fetch('/api/operator/stop-job', { method: 'POST' });
+        if (r.ok) loadJobStatus(); else { var e = await r.json(); alert(e.detail || 'Failed to stop job'); }
+    } catch (err) { alert('Network error.'); console.error(err); }
+    finally { stopBtn.textContent = '⏹ Stop Job'; loadJobStatus(); }
 }
 
 /**
- * Setup job configuration form handler
+ * Terminate: no new photos analysed; only in-flight writes to output will finish, then stop.
+ */
+async function terminateJob() {
+    if (!confirm('Terminate the job?\n\nNo new photos will be matched or analysed. Only images currently being written to their output folders will be finished, then the job stops.')) return;
+    var termBtn = document.getElementById('btn-terminate-job');
+    termBtn.disabled = true;
+    termBtn.textContent = 'Terminating...';
+    try {
+        var r = await fetch('/api/operator/terminate-job', { method: 'POST' });
+        if (r.ok) loadJobStatus(); else { var e = await r.json(); alert(e.detail || 'Failed to terminate'); }
+    } catch (err) { alert('Network error.'); console.error(err); }
+    finally { termBtn.textContent = '⏹ Terminate'; loadJobStatus(); }
+}
+
+/**
+ * Setup job configuration form handler (form is in job-config modal)
  */
 function setupJobConfigForm() {
     const form = document.getElementById('job-config-form');
     const status = document.getElementById('job-config-status');
-    
+    const cardStatus = document.getElementById('job-config-card-status');
+    if (!form) return;
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        
         const formData = new FormData(form);
-        
-        // Get selected person IDs (empty array means all persons)
         const selectedIds = Array.from(selectedPersonIds);
-        
         const data = {
             source_root: formData.get('source_root'),
             output_root: formData.get('output_root'),
-            selected_person_ids: selectedIds.length > 0 ? selectedIds : null
+            selected_person_ids: selectedIds.length > 0 ? selectedIds : null,
+            selected_image_paths: null
         };
-        
         try {
             const response = await fetch('/api/operator/job-config', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
-            
             const result = await response.json();
-            
             if (response.ok) {
-                const personCount = selectedIds.length > 0 ? selectedIds.length : 'all';
-                showStatus(status, 'success', `Configuration saved! Searching for ${personCount} person(s).`);
+                updateJobConfigCard();
+                var msg = 'Configuration saved! Searching for ' + (selectedIds.length > 0 ? selectedIds.length : 'all') + ' person(s).';
+                showStatus(cardStatus || status, 'success', msg);
+                closeJobConfigModal();
             } else {
                 showStatus(status, 'error', result.detail || 'Error saving configuration');
             }
@@ -570,8 +655,8 @@ function setupSeedPersonForm() {
             showStatus(status, 'success', message);
             form.reset();
             loadPersons();
-            loadPersonSelection();  // Refresh selection list
-            
+            loadPersonSelection();
+            loadRegistryCard();
         } catch (error) {
             showStatus(status, 'error', 'Network error. Please try again.');
             console.error('Error seeding person:', error);
@@ -604,6 +689,131 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// ============================================================================
+// Modals: Job Config, Person Selection, Person Registry
+// ============================================================================
+
+function openJobConfigModal() {
+    document.getElementById('job-config-modal').style.display = 'flex';
+}
+function closeJobConfigModal() {
+    document.getElementById('job-config-modal').style.display = 'none';
+}
+
+function openPersonSelectionModal() {
+    loadPersonSelection();
+    document.getElementById('person-selection-modal').style.display = 'flex';
+}
+function closePersonSelectionModal() {
+    document.getElementById('person-selection-modal').style.display = 'none';
+}
+
+async function applyPersonSelection() {
+    try {
+        var r = await fetch('/api/operator/job-config');
+        var data = await r.json();
+        var selectedIds = Array.from(selectedPersonIds);
+        var payload = {
+            source_root: data.source_root || '',
+            output_root: data.output_root || '',
+            selected_person_ids: selectedIds.length > 0 ? selectedIds : null,
+            selected_image_paths: null
+        };
+        var res = await fetch('/api/operator/job-config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+            closePersonSelectionModal();
+            loadPersonSelection();
+            loadJobStatus();
+        } else {
+            var e = await res.json();
+            alert(e.detail || 'Failed to save selection');
+        }
+    } catch (err) {
+        alert('Network error. Please try again.');
+        console.error(err);
+    }
+}
+
+function openPersonRegistryModal(tab) {
+    document.getElementById('person-registry-modal').style.display = 'flex';
+    switchPersonRegistryTab(tab || 'add');
+}
+function closePersonRegistryModal() {
+    document.getElementById('person-registry-modal').style.display = 'none';
+}
+
+/**
+ * Open Person Details modal from a compact person card (data-person-id, data-person-name, data-folder, data-embedding-count).
+ */
+function openPersonDetailsModal(cardEl) {
+    const modal = document.getElementById('person-details-modal');
+    if (!modal) return;
+    const id = cardEl.dataset.personId;
+    const name = cardEl.dataset.personName || '—';
+    const folder = cardEl.dataset.folder || '—';
+    const count = cardEl.dataset.embeddingCount != null ? cardEl.dataset.embeddingCount : '0';
+    modal.dataset.personId = id;
+    modal.dataset.personName = name;
+    document.getElementById('person-details-name').textContent = name;
+    document.getElementById('person-details-folder').textContent = folder ? '📁 ' + folder : '—';
+    document.getElementById('person-details-embeddings').textContent = count + ' reference(s)';
+    const refInput = document.getElementById('person-details-ref-input');
+    if (refInput) refInput.value = '';
+    modal.style.display = 'flex';
+}
+
+function closePersonDetailsModal() {
+    const modal = document.getElementById('person-details-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+/**
+ * Handle "Add more references" in Person Details modal. Reads personId from modal dataset.
+ */
+async function onPersonDetailsAddRef(inputEl) {
+    const modal = document.getElementById('person-details-modal');
+    if (!modal) return;
+    const pid = modal.dataset.personId ? parseInt(modal.dataset.personId, 10) : null;
+    if (!pid) return;
+    await addMultipleReferences(pid, inputEl);
+    try {
+        const r = await fetch('/api/operator/persons');
+        const d = await r.json();
+        const p = (d.persons || []).find(x => x.person_id === pid);
+        const el = document.getElementById('person-details-embeddings');
+        if (p && el) el.textContent = p.embedding_count + ' reference(s)';
+    } catch (e) { /* ignore */ }
+}
+
+/**
+ * Delete person from Person Details modal and close it on success.
+ */
+async function deletePersonFromDetailsFromModal() {
+    const modal = document.getElementById('person-details-modal');
+    if (!modal) return;
+    const pid = modal.dataset.personId ? parseInt(modal.dataset.personId, 10) : null;
+    const name = modal.dataset.personName || '';
+    if (!pid) return;
+    const deleted = await deletePerson(pid, name);
+    if (deleted) closePersonDetailsModal();
+}
+
+function switchPersonRegistryTab(tab) {
+    document.querySelectorAll('.modal-tab').forEach(function(btn) {
+        btn.classList.toggle('active', btn.dataset.tab === tab);
+    });
+    document.querySelectorAll('.modal-tab-pane').forEach(function(pane) {
+        var isActive = pane.id === 'person-registry-tab-' + tab;
+        pane.classList.toggle('active', isActive);
+        pane.style.display = isActive ? 'block' : 'none';
+    });
+    if (tab === 'list') loadPersons();
 }
 
 // ============================================================================
@@ -716,22 +926,26 @@ function navigateToParent() {
  */
 function selectCurrentFolder() {
     if (folderBrowserState.currentPath && folderBrowserState.targetInputId) {
-        document.getElementById(folderBrowserState.targetInputId).value = folderBrowserState.currentPath;
+        var inp = document.getElementById(folderBrowserState.targetInputId);
+        if (inp) inp.value = folderBrowserState.currentPath;
     }
     closeFolderBrowser();
 }
 
-// Close modal when clicking outside
+// Close modals when clicking overlay or pressing Escape
 document.addEventListener('click', (e) => {
-    const modal = document.getElementById('folder-browser-modal');
-    if (e.target === modal) {
-        closeFolderBrowser();
-    }
+    if (!e.target || !e.target.classList || !e.target.classList.contains('modal')) return;
+    if (e.target.id === 'folder-browser-modal') closeFolderBrowser();
+    else if (e.target.id === 'job-config-modal') closeJobConfigModal();
+    else if (e.target.id === 'person-selection-modal') closePersonSelectionModal();
+    else if (e.target.id === 'person-registry-modal') closePersonRegistryModal();
 });
 
-// Close modal with Escape key
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+        closePersonRegistryModal();
+        closePersonSelectionModal();
+        closeJobConfigModal();
         closeFolderBrowser();
     }
 });
