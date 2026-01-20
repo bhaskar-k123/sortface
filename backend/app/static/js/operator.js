@@ -6,7 +6,10 @@
 // Global state for selected persons
 let selectedPersonIds = new Set();
 
+const THEME_KEY = 'face_segregation_theme';
+
 document.addEventListener('DOMContentLoaded', () => {
+    initTheme();
     loadPersons();
     loadJobConfig();
     loadJobStatus();
@@ -25,7 +28,35 @@ document.addEventListener('DOMContentLoaded', () => {
             Animations.buttonPress(btn);
         }
     });
+
+    lucide.createIcons();
 });
+
+function initTheme() {
+    const savedTheme = localStorage.getItem(THEME_KEY);
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const checkbox = document.getElementById('theme-checkbox');
+    
+    if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        if (checkbox) checkbox.checked = true;
+    } else {
+        if (checkbox) checkbox.checked = false;
+    }
+}
+
+function toggleTheme() {
+    const checkbox = document.getElementById('theme-checkbox');
+    const isDark = checkbox.checked;
+
+    if (isDark) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        localStorage.setItem(THEME_KEY, 'dark');
+    } else {
+        document.documentElement.removeAttribute('data-theme');
+        localStorage.setItem(THEME_KEY, 'light');
+    }
+}
 
 /**
  * Load and display registered persons (into #persons-list in Person Registry modal)
@@ -984,7 +1015,8 @@ function switchPersonRegistryTab(tab) {
     document.querySelectorAll('.modal-tab-pane').forEach(function(pane) {
         var isActive = pane.id === 'person-registry-tab-' + tab;
         pane.classList.toggle('active', isActive);
-        pane.style.display = isActive ? 'block' : 'none';
+        // Display is now handled by CSS class .active for animation support
+        if (!isActive) pane.style.display = ''; // Clear inline styles
     });
     
     // Show/hide specific footer buttons based on tab

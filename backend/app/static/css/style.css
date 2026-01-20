@@ -52,6 +52,52 @@
     --radius-xl: 30px;
     --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.04);
     --shadow-large: 0 10px 40px rgba(0, 0, 0, 0.08);
+
+    /* Animation Variables */
+    --ease-apple: cubic-bezier(0.25, 1, 0.5, 1);
+    --duration-fast: 0.2s;
+    --duration-normal: 0.3s;
+}
+
+[data-theme="dark"] {
+    --bg-primary: #1c1c1e;   /* Apple Dark Grey */
+    --bg-secondary: #000000; /* Pure Black Background */
+    --bg-tertiary: #2c2c2e;  /* Surface Grey */
+    --border-color: rgba(255, 255, 255, 0.12);
+    --text-primary: #ffffff;
+    --text-secondary: #98989d;
+    --text-muted: #6e6e73;
+    --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.3);
+    --shadow-large: 0 10px 40px rgba(0, 0, 0, 0.5);
+    
+    /* Invert button backgrounds for specific contexts */
+    --btn-secondary-bg: #ffffff;
+    --btn-secondary-text: #000000;
+}
+
+[data-theme="dark"] .btn-small, 
+[data-theme="dark"] .person-selection-compact .btn,
+[data-theme="dark"] .job-config-value-row .btn {
+    background-color: #ffffff;
+    color: #000000;
+    border: none;
+}
+
+[data-theme="dark"] .btn-small .icon,
+[data-theme="dark"] .person-selection-compact .btn .icon,
+[data-theme="dark"] .job-config-value-row .btn .icon {
+    stroke: #000000;
+}
+
+[data-theme="dark"] .icon {
+    stroke: white;
+}
+
+/* Re-override black for white buttons */
+[data-theme="dark"] .btn-small .icon,
+[data-theme="dark"] .person-selection-compact .btn .icon,
+[data-theme="dark"] .job-config-value-row .btn .icon {
+    stroke: #000000;
 }
 
 * {
@@ -79,40 +125,99 @@ body {
 }
 
 /* Header */
+/* Header */
 .header {
-    text-align: center;
-    margin-bottom: 3rem;
-    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding: 1rem 0;
+}
+
+.operator-header {
+    /* Flex alignment handled by .header */
+}
+
+.header-content {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
 }
 
 .header h1 {
-    font-size: 2.5rem;
+    font-size: 2rem;
     font-weight: 700;
-    background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.25rem;
 }
 
 .subtitle {
     color: var(--text-secondary);
-    font-size: 1.1rem;
+    font-size: 1rem;
+    margin: 0;
 }
 
-.back-link {
+/* Theme Toggle Switch (Apple-style) */
+.theme-switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 28px;
+}
+
+.theme-switch input { 
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
     position: absolute;
+    cursor: pointer;
+    top: 0;
     left: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--text-secondary);
-    text-decoration: none;
-    font-size: 0.9rem;
-    transition: color 0.2s;
+    right: 0;
+    bottom: 0;
+    background-color: #e9e9ea; /* Light mode inactive */
+    transition: .4s;
 }
 
-.back-link:hover {
-    color: var(--accent-cyan);
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 24px;
+    width: 24px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: .4s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+input:checked + .slider {
+    background-color: #30d158; /* Apple green active, or use --bg-tertiary */
+}
+
+/* Dark mode specific for slider background */
+[data-theme="dark"] .slider {
+    background-color: #3a3a3c;
+}
+
+input:checked + .slider:before {
+    transform: translateX(22px);
+}
+
+/* Rounded sliders */
+.slider.round {
+    border-radius: 34px;
+}
+
+.slider.round:before {
+    border-radius: 50%;
 }
 
 /* Navigation Cards (Home) */
@@ -180,11 +285,12 @@ body {
     margin-bottom: 1.5rem;
     overflow: hidden;
     box-shadow: var(--shadow-soft);
-    transition: box-shadow 0.3s ease, border-color 0.3s ease;
+    transition: box-shadow var(--duration-normal) var(--ease-apple), transform var(--duration-normal) var(--ease-apple);
 }
 
 .panel:hover {
     box-shadow: var(--shadow-large);
+    transform: translateY(-2px);
 }
 
 .panel h2 {
@@ -282,16 +388,22 @@ input[type="file"]::file-selector-button:hover {
     border: none;
     background: var(--bg-tertiary);
     color: var(--accent-blue);
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all var(--duration-fast) var(--ease-apple);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
     -webkit-font-smoothing: antialiased;
+    transform: scale(1);
 }
 
 .btn:hover {
     background: #e5e5ea;
+    transform: translateY(-1px);
+}
+
+.btn:active {
+    transform: scale(0.96);
 }
 
 .btn-small {
@@ -868,7 +980,18 @@ input[type="file"]::file-selector-button:hover {
     box-shadow: var(--shadow-large);
     display: flex;
     flex-direction: column;
-    animation: modal-enter 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    animation: modal-enter 0.4s var(--ease-apple);
+}
+
+@keyframes modal-enter {
+    from {
+        opacity: 0;
+        transform: scale(0.96) translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
 }
 
 .modal.active .modal-content {
@@ -919,9 +1042,13 @@ input[type="file"]::file-selector-button:hover {
 
 .modal-body {
     flex: 1;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
     display: flex;
     flex-direction: column;
+    overscroll-behavior: contain; /* Prevents scroll chaining/rubber-banding to body */
+    -webkit-overflow-scrolling: touch; /* Silky smooth touch scrolling */
+    scroll-behavior: smooth;
 }
 
 .modal-footer {
@@ -943,8 +1070,11 @@ input[type="file"]::file-selector-button:hover {
 }
 
 #person-registry-modal .modal-body {
-    padding: 0 1.5rem 1.5rem 1.5rem; /* Removed top padding to sit closer to tabs */
+    padding: 0 1.5rem 1.5rem 1.5rem;
     overflow-y: auto;
+    /* Force GPU layer for silky smooth scrolling */
+    transform: translateZ(0); 
+    will-change: scroll-position;
 }
 
 #person-registry-modal .panel-description {
@@ -1240,11 +1370,16 @@ input[type="file"]::file-selector-button:hover {
     align-items: center;
     gap: 1.5rem;
     text-align: center;
-    transition: all 0.3s ease;
+    transition: all var(--duration-normal) var(--ease-apple);
     width: 100%;
     max-width: 440px;
     box-shadow: var(--shadow-soft);
     flex-shrink: 0; /* Don't squash the card */
+}
+
+.status-card-inner:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-large);
 }
 
 .status-display-v2 {
@@ -1338,6 +1473,13 @@ input[type="file"]::file-selector-button:hover {
     background: rgba(255, 59, 48, 0.2);
 }
 
+[data-theme="dark"] .btn-pill-apple.danger-light {
+    color: #FF453A; /* Slightly lighter red for dark mode */
+}
+[data-theme="dark"] .btn-pill-apple.danger-light .icon {
+    stroke: #FFFFFF !important; /* Force white icon in dark mode */
+}
+
 .btn-icon-subtle {
     width: 40px;
     height: 40px;
@@ -1356,6 +1498,15 @@ input[type="file"]::file-selector-button:hover {
     background: rgba(255, 59, 48, 0.1);
     color: #FF3B30;
     border-color: rgba(255, 59, 48, 0.2);
+}
+
+[data-theme="dark"] .btn-icon-subtle,
+[data-theme="dark"] .modal-close {
+    color: #FFFFFF !important;
+}
+[data-theme="dark"] .btn-icon-subtle .icon,
+[data-theme="dark"] .modal-close .icon {
+    stroke: #FFFFFF !important;
 }
 
 .btn-icon-subtle:disabled {
@@ -1729,6 +1880,13 @@ input[type="file"]::file-selector-button:hover {
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: all var(--duration-fast) var(--ease-apple);
+}
+
+.registry-thumb-cell:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    z-index: 2;
 }
 .registry-thumb-cell img {
     width: 100%;
@@ -1779,6 +1937,18 @@ input[type="file"]::file-selector-button:hover {
 }
 .modal-tab-pane.active {
     display: block;
+    animation: tab-enter 0.3s var(--ease-apple);
+}
+
+@keyframes tab-enter {
+    from {
+        opacity: 0;
+        transform: scale(0.99);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
 }
 
 /* Responsive */

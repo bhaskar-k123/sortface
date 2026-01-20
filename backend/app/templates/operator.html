@@ -10,9 +10,15 @@
 <body class="operator-page">
     <div class="container operator-container">
         <header class="header operator-header">
-            <a href="/" class="back-link"><i data-lucide="arrow-left" class="icon icon-sm"></i>Back</a>
-            <h1>Operator Panel</h1>
-            <p class="subtitle">Configure jobs and seed identities</p>
+            <div class="header-content">
+                <h1>SortFace</h1>
+                <p class="subtitle">Command Center</p>
+            </div>
+            
+            <label class="theme-switch" aria-label="Toggle Dark Mode">
+                <input type="checkbox" id="theme-checkbox" onchange="toggleTheme()">
+                <span class="slider round"></span>
+            </label>
         </header>
         
         <main class="operator-grid">
