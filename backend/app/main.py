@@ -1,6 +1,6 @@
 """
 FastAPI application entry point.
-Serves Operator UI and Tracker UI.
+Single-page application serving the Operator Panel.
 """
 from pathlib import Path
 from fastapi import FastAPI, Request
@@ -79,24 +79,25 @@ async def system_info():
 
 
 # ============================================================================
-# UI Routes
+# UI Routes (Single Page App)
 # ============================================================================
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    """Home page with links to Operator and Tracker UIs."""
-    return templates.TemplateResponse("home.html", {"request": request})
-
-
-@app.get("/operator", response_class=HTMLResponse)
-async def operator_ui(request: Request):
-    """Operator control plane UI."""
+    """Operator Panel - main and only UI page."""
     return templates.TemplateResponse("operator.html", {"request": request})
+
+
+@app.get("/operator")
+async def operator_redirect():
+    """Redirect /operator to / for backwards compatibility."""
+    return RedirectResponse(url="/", status_code=302)
 
 
 @app.get("/tracker")
 async def tracker_redirect():
-    """Progress is now in Operator; redirect."""
-    return RedirectResponse(url="/operator", status_code=302)
+    """Redirect /tracker to / for backwards compatibility."""
+    return RedirectResponse(url="/", status_code=302)
+
 
 
