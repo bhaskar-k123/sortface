@@ -1,18 +1,43 @@
 /* 
  * Face Photo Segregation System - UI Styles
- * Modern dark theme with cyan accents
+ * Modern light theme with clean design
  */
 
+/* Inter Font - Local Loading for Offline Support */
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('/static/fonts/inter-regular.woff2') format('woff2');
+}
+
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url('/static/fonts/inter-medium.woff2') format('woff2');
+}
+
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url('/static/fonts/inter-semibold.woff2') format('woff2');
+}
+
 :root {
-    --bg-primary: #0d1117;
-    --bg-secondary: #161b22;
-    --bg-tertiary: #21262d;
-    --border-color: #30363d;
-    --text-primary: #e6edf3;
-    --text-secondary: #8b949e;
-    --text-muted: #6e7681;
-    --accent-cyan: #39d4d4;
-    --accent-cyan-dim: #1a7f7f;
+    --bg-primary: #ffffff;
+    --bg-secondary: #f8f9fa;
+    --bg-tertiary: #e9ecef;
+    --border-color: #dee2e6;
+    --text-primary: #000000;
+    --text-secondary: #495057;
+    --text-muted: #6c757d;
+    --accent-cyan: #000000;
+    --accent-cyan-dim: #333333;
     --accent-green: #3fb950;
     --accent-green-dim: #1a5f1a;
     --accent-yellow: #d29922;
@@ -20,9 +45,10 @@
     --accent-blue: #58a6ff;
     --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
     --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-    --radius-sm: 6px;
-    --radius-md: 8px;
-    --radius-lg: 12px;
+    --radius-sm: 12px;
+    --radius-md: 24px;
+    --radius-lg: 32px;
+    --radius-xl: 40px;
 }
 
 * {
@@ -145,6 +171,7 @@ body {
     border-radius: var(--radius-lg);
     padding: 1.5rem;
     margin-bottom: 1.5rem;
+    overflow: hidden;
 }
 
 .panel h2 {
@@ -206,29 +233,43 @@ body {
 
 /* Buttons */
 .btn {
-    padding: 0.75rem 1.5rem;
-    border-radius: var(--radius-sm);
-    font-size: 0.95rem;
+    padding: 0.5rem 1.25rem;
+    border-radius: var(--radius-md);
+    font-size: 0.9rem;
     font-weight: 500;
+    font-family: 'Inter', var(--font-sans);
     cursor: pointer;
-    border: none;
-    transition: all 0.2s;
+    border: 1px solid var(--border-color);
+    background: #ffffff;
+    color: var(--text-primary);
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+}
+
+.btn:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, var(--accent-cyan-dim), var(--accent-cyan));
-    color: var(--bg-primary);
+    background: #3B82F6;
+    color: #ffffff;
+    border: 1px solid #3B82F6;
 }
 
 .btn-primary:hover {
-    opacity: 0.9;
-    transform: translateY(-1px);
+    background: #2563EB;
+    border-color: #2563EB;
 }
 
 .btn-primary:disabled {
     opacity: 0.5;
     cursor: not-allowed;
-    transform: none;
+    background: #93C5FD;
+    border-color: #93C5FD;
 }
 
 /* Status Messages */
@@ -329,7 +370,10 @@ body {
 /* Worker Status */
 .worker-status {
     text-align: center;
-    padding: 1rem;
+    padding: 1.25rem;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
 }
 
 .status-indicator {
@@ -337,7 +381,7 @@ body {
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 1rem;
-    border-radius: 999px;
+    border-radius: var(--radius-md);
     font-weight: 500;
 }
 
@@ -579,14 +623,16 @@ body {
 }
 
 .btn-browse {
-    background: var(--bg-tertiary);
+    background: #ffffff;
     color: var(--text-primary);
     border: 1px solid var(--border-color);
     white-space: nowrap;
+    border-radius: var(--radius-md);
 }
 
 .btn-browse:hover {
-    background: var(--border-color);
+    background: #f3f4f6;
+    border-color: #d1d5db;
 }
 
 /* Modal */
@@ -609,6 +655,7 @@ body {
     border-radius: var(--radius-lg);
     width: 90%;
     max-width: 600px;
+    overflow: hidden;
 }
 
 .modal-content.modal-large {
@@ -777,13 +824,15 @@ body {
 }
 
 .btn-danger {
-    background: rgba(248, 81, 73, 0.2);
-    color: var(--accent-red);
-    border: 1px solid var(--accent-red);
+    background: #ffffff;
+    color: #DC2626;
+    border: 1px solid #DC2626;
+    border-radius: 999px;
 }
 
 .btn-danger:hover {
-    background: rgba(248, 81, 73, 0.3);
+    background: #FEE2E2;
+    border-color: #B91C1C;
 }
 
 /* Folder Browser */
@@ -798,18 +847,17 @@ body {
 .btn-nav {
     padding: 0.5rem 1rem;
     font-size: 0.9rem;
-    background: var(--bg-primary);
+    background: #ffffff;
     border: 1px solid var(--border-color);
     color: var(--text-primary);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
     cursor: pointer;
     transition: all 0.2s ease;
 }
 
 .btn-nav:hover {
-    background: var(--accent-cyan-dim);
-    border-color: var(--accent-cyan);
-    color: var(--accent-cyan);
+    background: #f3f4f6;
+    border-color: #d1d5db;
 }
 
 .folder-path-display {
@@ -847,15 +895,17 @@ body {
 }
 
 .btn-small {
-    padding: 0.35rem 0.75rem;
+    padding: 0.35rem 0.85rem;
     font-size: 0.8rem;
-    background: var(--bg-secondary);
+    background: #ffffff;
     color: var(--text-primary);
     border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
 }
 
 .btn-small:hover {
-    background: var(--border-color);
+    background: #f3f4f6;
+    border-color: #d1d5db;
 }
 
 .btn-small:disabled {
@@ -952,12 +1002,18 @@ body {
 .job-hint { font-size: 0.8rem; color: var(--accent-yellow); margin-top: 0.5rem; }
 
 .btn-terminate {
-    background: linear-gradient(135deg, #5f3a1a, #d29922);
-    color: white;
+    background: #F59E0B;
+    color: #ffffff;
+    border: 1px solid #F59E0B;
     font-weight: 600;
-    padding: 0.75rem 1.25rem;
+    padding: 0.6rem 1.25rem;
+    border-radius: var(--radius-md);
 }
-.btn-terminate:hover:not(:disabled) { opacity: 0.9; }
+
+.btn-terminate:hover:not(:disabled) {
+    background: #D97706;
+    border-color: #D97706;
+}
 
 .progress-source-line { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem; word-break: break-all; }
 .progress-current-image { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.35rem; font-family: var(--font-mono); }
@@ -981,21 +1037,31 @@ body {
 }
 
 .btn-start {
-    background: linear-gradient(135deg, #1a5f1a, #3fb950);
-    color: white;
+    background: #22C55E;
+    color: #ffffff;
+    border: 1px solid #22C55E;
     font-weight: 600;
-    padding: 0.75rem 2rem;
+    padding: 0.6rem 1.5rem;
+    border-radius: var(--radius-md);
 }
 
 .btn-start:hover:not(:disabled) {
-    opacity: 0.9;
+    background: #16A34A;
+    border-color: #16A34A;
 }
 
 .btn-stop {
-    background: linear-gradient(135deg, #5f1a1a, #f85149);
-    color: white;
+    background: #EF4444;
+    color: #ffffff;
+    border: 1px solid #EF4444;
     font-weight: 600;
-    padding: 0.75rem 2rem;
+    padding: 0.6rem 1.5rem;
+    border-radius: var(--radius-md);
+}
+
+.btn-stop:hover:not(:disabled) {
+    background: #DC2626;
+    border-color: #DC2626;
 }
 
 .btn-stop:hover:not(:disabled) {
@@ -1180,22 +1246,28 @@ body {
 .operator-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1fr;
-    gap: 1rem;
-    min-height: 0;
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas:
+        "config progress"
+        "control progress"
+        "status registry";
+    gap: 1.5rem;
     height: calc(100vh - 100px);
+    overflow: hidden;
 }
-.operator-cell {
-    min-height: 0;
-    overflow: auto;
+
+#job-config-card { grid-area: config; margin-bottom: 0; }
+#job-control-panel { grid-area: control; margin-bottom: 0; }
+#job-status-panel { grid-area: status; margin-bottom: 0; }
+#job-progress-panel { grid-area: progress; margin-bottom: 0; }
+#person-registry-card { grid-area: registry; margin-bottom: 0; }
+
+.operator-cell .panel {
+    margin-bottom: 0;
+    flex: 1;
     display: flex;
     flex-direction: column;
-}
-.operator-cell-left {
-    grid-row: 1 / -1;
-    gap: 0.5rem;
-    overflow: hidden;
-    justify-content: flex-start;
+    min-height: 0;
 }
 .operator-cell .panel {
     margin-bottom: 0;
@@ -1204,14 +1276,11 @@ body {
     flex-direction: column;
     min-height: 0;
 }
-#job-config-card,
-#job-control-panel {
-    flex: 0 0 auto;
-}
 #job-status-panel {
-    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
     min-height: 0;
-    padding: 1rem;
+    padding: 1.5rem;
 }
 #job-status-panel .job-control {
     padding: 0.5rem 0.75rem;
@@ -1222,18 +1291,30 @@ body {
     margin-bottom: 0.5rem;
 }
 #job-progress-panel #progress-section {
-    margin-top: 0.25rem;
-    padding-top: 0;
+    margin-top: 0;
+    padding-top: 1rem;
     border-top: none;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 1.25rem;
+    flex: 1;
+    min-height: 0;
 }
-#job-progress-panel .worker-status-section {
-    padding-top: 0.75rem;
+#job-status-panel .worker-status-section {
+    padding-top: 1rem;
+    margin-top: 1rem;
     border-top: 1px solid var(--border-color);
+    flex-shrink: 0;
 }
-#job-progress-panel .worker-status-section h3 {
-    margin-bottom: 0.5rem;
+#job-status-panel .worker-status-section h3 {
+    margin-bottom: 0.75rem;
     font-size: 0.85rem;
     color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
 }
 
 /* Job Config card (compact) */
@@ -1313,7 +1394,7 @@ body {
     width: 100%;
     max-width: 420px;
     aspect-ratio: 5 / 2;
-    margin: 1.25rem auto 0;
+    margin: 2.5rem auto 1.5rem;
     cursor: pointer;
     border-radius: var(--radius-md);
     overflow: hidden;
@@ -1342,18 +1423,31 @@ body {
     background: var(--bg-primary);
 }
 .registry-thumb-cell.add-person-cell {
-    background: var(--accent-cyan-dim);
-    color: var(--accent-cyan);
-    border-color: var(--accent-cyan);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    border-color: var(--border-color);
     font-size: 1.5rem;
     font-weight: 300;
     cursor: pointer;
-    transition: background 0.2s, color 0.2s;
+    transition: all 0.2s ease;
+    box-shadow: none;
+    animation: none;
 }
 .registry-thumb-cell.add-person-cell:hover {
-    background: var(--accent-cyan);
-    color: var(--bg-primary);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border-color: var(--text-muted);
+    transform: none;
+    box-shadow: none;
+    animation: none;
 }
+.registry-thumb-cell.add-person-cell .icon-lg {
+    width: 24px;
+    height: 24px;
+    stroke-width: 2;
+}
+
+/* Removed pulse-ring keyframes */
 .registry-thumb-cell.plus-badge {
     background: var(--accent-cyan-dim);
     color: var(--accent-cyan);

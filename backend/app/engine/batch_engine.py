@@ -118,6 +118,7 @@ class BatchEngine:
         batch = await get_batch_by_id(batch_id)
         if not batch:
             raise ValueError(f"Batch {batch_id} not found")
+        job_id = batch["job_id"]
         
         if batch["state"] == BatchState.COMMITTED.value:
             # Already committed - skip
@@ -137,7 +138,7 @@ class BatchEngine:
         )
         
         # ================================================================
-        # PHASE 1: PROCESSING (no external writes)
+        # STREAM PROCESSING (Analyze -> Commit Immediately)
         # ================================================================
         
         await update_batch_state(batch_id, BatchState.PROCESSING)
@@ -151,58 +152,99 @@ class BatchEngine:
         # Refresh matcher centroids
         await self.matcher.refresh_centroids()
         
-        # Process images in chunks; check for "terminating" between chunks to stop analysis early
-        TERMINATE_CHUNK = 10
+        # Configure worker count
         worker_count = settings.get_worker_count() if settings.enable_parallel_processing else 1
         semaphore = asyncio.Semaphore(worker_count)
         
-        async def process_with_semaphore(image):
-            self._update_progress(
-                current_batch_id=batch_id,
-                current_batch_state="PROCESSING",
-                current_image_range=image_range,
-                current_superbatch=superbatch,
-                current_image=Path(image["source_path"]).name,
-            )
-            async with semaphore:
-                return await self._process_image(image, batch_id)
+        commit_results_all = []
+        process_results_all = []
         
-        results = []
-        for i in range(0, len(images), TERMINATE_CHUNK):
-            if await get_job_status() == "terminating":
-                break
-            chunk = images[i : i + TERMINATE_CHUNK]
-            if settings.enable_parallel_processing:
-                chunk_results = await asyncio.gather(*[process_with_semaphore(im) for im in chunk])
-            else:
-                chunk_results = []
-                for im in chunk:
+        async def process_and_commit_single(image):
+            """Analyze one image and commit it immediately if matched."""
+            try:
+                # 1. ANALYZE
+                async with semaphore:
+                    # Update progress for analysis
                     self._update_progress(
                         current_batch_id=batch_id,
                         current_batch_state="PROCESSING",
                         current_image_range=image_range,
                         current_superbatch=superbatch,
-                        current_image=Path(im["source_path"]).name,
+                        current_image=Path(image["source_path"]).name,
                     )
-                    chunk_results.append(await self._process_image(im, batch_id))
-            results.extend(chunk_results)
+                    proc_result = await self._process_image(image, batch_id)
+                
+                process_results_all.append(proc_result)
+                
+                # 2. COMMIT (if matched)
+                if proc_result.get("matched_count", 0) > 0:
+                     self._update_progress(
+                        current_batch_state="WRITING",  # Ephemeral state for UI
+                        current_image=Path(image["source_path"]).name
+                    )
+                     # Commit immediately
+                     c_result = await self._commit_image(proc_result, batch_id)
+                     
+                     if c_result.get("routed"):
+                        last_routed = c_result["routed"][-1]
+                        self._update_progress(
+                            last_committed_person=last_routed.get("person_name"),
+                            last_committed_image=c_result.get("output_filename"),
+                        )
+                     commit_results_all.append(c_result)
+                
+                return proc_result
+            except Exception as e:
+                print(f"Error processing image {image['source_path']}: {e}")
+                import traceback
+                traceback.print_exc()
+                # Return empty/error result
+                err_result = {"error": str(e), "skipped": True}
+                process_results_all.append(err_result) # Ensure we track the failure
+                return err_result
+
+        # Run stream
+        # Process in chunks to respect termination signals
+        TERMINATE_CHUNK = 10
         
-        # PHASE 2 & 3: COMMITTING then COMMITTED (writes only for results we have)
-        await update_batch_state(batch_id, BatchState.COMMITTING)
-        self._update_progress(current_batch_state="COMMITTING", current_image=None)
-        commit_results = await self._commit_batch(batch_id)
+        for i in range(0, len(images), TERMINATE_CHUNK):
+            if await get_job_status() == "terminating":
+                break
+            
+            chunk = images[i : i + TERMINATE_CHUNK]
+            if settings.enable_parallel_processing:
+                await asyncio.gather(*[process_and_commit_single(im) for im in chunk])
+            else:
+                for im in chunk:
+                    await process_and_commit_single(im)
+        
+        # Mark batch valid/complete
+        # Even if we "committed" items one by one, we set batch to COMMITTED at end
+        # so it doesn't get picked up again.
+        # Logic remains: Batch is unit of "Done".
+        
+        # Skip the old "COMMITTING" phase logic
+        await update_batch_state(batch_id, BatchState.COMMITTED)
+        
+        # Update job total
+        # We need to count how many we actually committed in this run
+        route_count = len([c for c in commit_results_all if c.get("status") == "committed" or c.get("status") == "success"])
+        # Actually job progress is based on "images processed" not "written"
+        await self._update_job_progress(job_id, batch_result_count=len(process_results_all))
+        
+        self._update_progress(current_batch_state="COMMITTED")
+        self._print_progress_summary()
         
         # Count skipped files
-        skipped_count = sum(1 for r in results if r.get("skipped"))
+        skipped_count = sum(1 for r in process_results_all if r.get("skipped"))
         
         return {
             "batch_id": batch_id,
             "status": "committed",
-            "images_processed": len(results),
-            "faces_detected": sum(r.get("face_count", 0) for r in results),
-            "matches": sum(r.get("matched_count", 0) for r in results),
-            "unknowns": sum(r.get("unknown_count", 0) for r in results),
-            "files_routed": len(commit_results),
+            "images_processed": len(process_results_all),
+            "faces_detected": sum(r.get("face_count", 0) for r in process_results_all if "face_count" in r),
+            "matches": sum(r.get("matched_count", 0) for r in process_results_all if "matched_count" in r),
+            "files_routed": len(commit_results_all),
             "skipped": skipped_count
         }
     
@@ -255,7 +297,14 @@ class BatchEngine:
             
             # Detect faces and get embeddings
             try:
-                faces = self.face_engine.detect_and_embed(recognition_path)
+                # CRITICAL: Run CPU-bound face detection in executor to avoid blocking event loop
+                loop = asyncio.get_running_loop()
+                # Use default ThreadPoolExecutor
+                faces = await loop.run_in_executor(
+                    None, 
+                    self.face_engine.detect_and_embed, 
+                    recognition_path
+                )
             except Exception as e:
                 # Gracefully skip files that can't be read/processed
                 print(f"  ⚠ Skipping {source_path.name}: Could not process image - {e}")
@@ -322,6 +371,8 @@ class BatchEngine:
             
             return {
                 "image_id": image["image_id"],
+                "source_path": image["source_path"],
+                "sha256": image["sha256"],
                 "face_count": len(faces),
                 "matched_count": len(matched_ids),
                 "unknown_count": unknown_count,

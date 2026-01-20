@@ -144,6 +144,18 @@ class WorkerRunner:
                     print(f"Error in worker loop: {e}")
                     import traceback
                     traceback.print_exc()
+                    
+                    # CRITICAL FIX: Reset batch state if we were processing one
+                    # Otherwise it stays stuck in PROCESSING and is never retried
+                    if 'batch' in locals() and isinstance(batch, dict) and batch.get("batch_id"):
+                        try:
+                            # Import here to avoid circular dependencies if any, though top-level is better
+                            from ..db.jobs import update_batch_state, BatchState
+                            print(f"  ⚠ Resetting batch {batch['batch_id']} to PENDING due to error")
+                            await update_batch_state(batch["batch_id"], BatchState.PENDING)
+                        except Exception as reset_error:
+                            print(f"  Failed to reset batch state: {reset_error}")
+                            
                     await asyncio.sleep(5)
         finally:
             # Stop heartbeat task
