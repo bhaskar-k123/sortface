@@ -35,22 +35,23 @@ cd backend
 python scripts/run_server.py
 ```
 
-Open http://127.0.0.1:8000 in your browser.
+Open http://127.0.0.1:8000 in your browser to access the Operator Panel.
 
-### 3. Configure Job (Operator UI)
+### 3. Configure Job
 
-1. Go to **Operator Panel**
+1. Click **Edit** on the Job Configuration card
 2. Set **Source Directory** (your event photos on external HDD)
 3. Set **Output Directory** (where sorted photos will go)
 4. Click **Save Configuration**
 
 ### 4. Seed Person Identities
 
-1. In Operator Panel, scroll to **Person Registry**
-2. Enter person's name and output folder name
-3. Upload a clear reference photo (exactly ONE face visible)
-4. Click **Add Person**
-5. Repeat for all persons to track
+1. Click on the **Person Registry** card
+2. Switch to the **Add** tab
+3. Enter person's name and output folder name
+4. Upload a clear reference photo (exactly ONE face visible)
+5. Click **Add Person**
+6. Repeat for all persons to track
 
 ### 5. Start the Worker
 
@@ -61,9 +62,9 @@ cd backend
 python scripts/run_worker.py
 ```
 
-### 6. Monitor Progress (Tracker UI)
+### 6. Monitor Progress
 
-Go to http://127.0.0.1:8000/tracker to watch progress.
+Progress is displayed directly on the main page in the **Job Progress** section.
 
 ### 7. Configure Concurrency (Optional)
 
@@ -357,14 +358,28 @@ commit_log (batch_id, image_id, person_id, output_filename, output_path, status)
 
 ## API Reference
 
+### System Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/health` | Health check for monitoring |
+| GET | `/api/info` | System configuration info |
+
 ### Operator Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/operator/job-config` | Get current job configuration |
 | POST | `/api/operator/job-config` | Set job configuration |
+| GET | `/api/operator/job-status` | Get job status |
+| POST | `/api/operator/start-job` | Start processing job |
+| POST | `/api/operator/stop-job` | Stop job gracefully |
+| POST | `/api/operator/terminate-job` | Terminate job immediately |
 | GET | `/api/operator/persons` | List all registered persons |
 | POST | `/api/operator/seed-person` | Add new person with reference image |
+| POST | `/api/operator/persons/{id}/add-reference` | Add reference to existing person |
+| DELETE | `/api/operator/persons/{id}` | Delete a person |
+| GET | `/api/operator/browse-folders` | Browse local folders |
 
 ### Tracker Endpoints (Read-Only)
 
@@ -375,46 +390,85 @@ commit_log (batch_id, image_id, person_id, output_filename, output_path, status)
 
 ---
 
-## File Structure
+## Project Structure
 
 ```
 Image_Segregation/
 ├── requirements.txt
 ├── README.md
+├── frontend/                      # Standalone frontend code (modular)
+│   ├── public/
+│   └── src/
+│       ├── css/
+│       │   └── style.css
+│       └── js/
+│           ├── services/          # API service layer
+│           │   ├── api.js         # Base fetch configuration
+│           │   ├── operator.js    # Operator API calls
+│           │   └── tracker.js     # Tracker API calls
+│           ├── components/        # Reusable UI components
+│           │   ├── modals.js
+│           │   └── progress.js
+│           └── utils/
+│               ├── animations.js
+│               └── helpers.js
+│
 └── backend/
+    ├── .env.example               # Environment config template
     ├── app/
-    │   ├── main.py              # FastAPI app
-    │   ├── config.py            # Settings
+    │   ├── main.py                # FastAPI app (single-page)
+    │   ├── config.py              # Settings
     │   ├── api/
-    │   │   ├── operator.py      # Operator endpoints
-    │   │   └── tracker.py       # Tracker endpoints
+    │   │   ├── operator.py        # Operator endpoints
+    │   │   ├── tracker.py         # Tracker endpoints
+    │   │   └── schemas/           # Pydantic models
+    │   │       ├── operator.py
+    │   │       └── tracker.py
+    │   ├── middleware/            # Centralized middleware
+    │   │   └── error_handler.py   # Error handling
     │   ├── db/
-    │   │   ├── schema.sql       # Database schema
-    │   │   ├── db.py            # Connection handling
-    │   │   ├── registry.py      # Person operations
-    │   │   └── jobs.py          # Job/batch operations
+    │   │   ├── schema.sql         # Database schema
+    │   │   ├── db.py              # Connection handling
+    │   │   ├── registry.py        # Person operations
+    │   │   └── jobs.py            # Job/batch operations
     │   ├── engine/
-    │   │   ├── batch_engine.py  # State machine
-    │   │   ├── faces.py         # Face detection
-    │   │   ├── match.py         # Identity matching
-    │   │   ├── ingest.py        # Image discovery
-    │   │   ├── compress.py      # JPEG compression
-    │   │   ├── raw_convert.py   # ARW handling
-    │   │   └── routing.py       # Fan-out routing
+    │   │   ├── batch_engine.py    # State machine
+    │   │   ├── faces.py           # Face detection
+    │   │   ├── match.py           # Identity matching
+    │   │   ├── ingest.py          # Image discovery
+    │   │   ├── compress.py        # JPEG compression
+    │   │   ├── raw_convert.py     # ARW handling
+    │   │   └── routing.py         # Fan-out routing
     │   ├── state/
-    │   │   └── state_writer.py  # Progress files
+    │   │   └── state_writer.py    # Progress files
     │   ├── storage/
-    │   │   └── paths.py         # Path validation
+    │   │   └── paths.py           # Path validation
     │   ├── worker/
-    │   │   └── runner.py        # Worker process
-    │   ├── templates/           # HTML templates
-    │   └── static/              # CSS/JS assets
+    │   │   └── runner.py          # Worker process
+    │   ├── templates/             # HTML templates
+    │   └── static/                # CSS/JS assets
     └── scripts/
-        ├── run_server.py        # Start API server
-        └── run_worker.py        # Start batch worker
+        ├── run_server.py          # Start API server
+        └── run_worker.py          # Start batch worker
 ```
 
 ---
+
+## Environment Configuration
+
+Copy `.env.example` to `.env` and customize as needed:
+
+```bash
+cd backend
+cp .env.example .env
+```
+
+Key settings:
+- `HOT_STORAGE_ROOT` - Root directory for internal computation
+- `THRESHOLD_STRICT` / `THRESHOLD_LOOSE` - Face matching thresholds
+- `ATOMIC_BATCH_SIZE` - Images per batch (default: 50)
+- `CPU_USAGE_MODE` - Worker parallelism mode
+- `SERVER_HOST` / `SERVER_PORT` - API server binding
 
 ---
 
@@ -504,4 +558,3 @@ This is a **fully offline tool**:
 - ✅ No data leaves your machine
 - ✅ All face recognition runs locally
 - ✅ No telemetry or analytics
-
