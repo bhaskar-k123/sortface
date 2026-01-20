@@ -6,13 +6,13 @@ A production-grade, offline system for sorting large event photo datasets (~16,0
 
 - **Offline-only**: No cloud services, all models run locally
 - **Large-scale**: Handles 16,000+ images efficiently
-- **Parallel processing**: Configurable multi-worker processing for faster performance
+- **Concurrent processing**: Asyncio-based concurrent batch processing with configurable parallelism
 - **Face recognition**: InsightFace-based detection and embedding
 - **Group photos**: Automatic fan-out routing to multiple person folders
 - **Crash-safe**: Atomic batch processing with resume support
 - **External HDD safe**: Read-only source, append-only output
 - **Progress tracking**: Real-time timer with elapsed time and ETA
-- **Adaptive CPU usage**: Low/balanced/high/adaptive modes
+- **Adaptive CPU usage**: Low/balanced/high/adaptive modes for concurrent task tuning
 
 ## Quick Start
 
@@ -65,7 +65,7 @@ python scripts/run_worker.py
 
 Go to http://127.0.0.1:8000/tracker to watch progress.
 
-### 7. Configure CPU Usage (Optional)
+### 7. Configure Concurrency (Optional)
 
 Set CPU usage mode via environment variable before starting worker:
 
@@ -75,8 +75,8 @@ $env:CPU_USAGE_MODE="balanced"  # Default
 python scripts/run_worker.py
 ```
 
-| Mode | Workers | CPU Usage | Best For |
-|------|---------|-----------|----------|
+| Mode | Concurrent Tasks | CPU Usage | Best For |
+|------|------------------|-----------|----------|
 | `low` | 2 | ~40% | Light load, multitasking |
 | `balanced` | 4 | ~67% | Default, good balance |
 | `high` | max-1 | ~90% | Maximum speed |
@@ -90,9 +90,11 @@ python scripts/run_worker.py
 
 | Configuration | Speed | Time for 3000 Images |
 |---------------|-------|----------------------|
-| Sequential (old) | ~0.33 img/s | 2.5 hours |
-| Parallel (4 workers) | ~0.5 img/s | 1.7 hours |
-| Parallel + Internal SSD | ~2 img/s | 25 min |
+| Sequential (1 task) | ~0.33 img/s | 2.5 hours |
+| Concurrent (4 tasks) | ~0.5 img/s | 1.7 hours |
+| Concurrent + Internal SSD | ~2 img/s | 25 min |
+
+> **Note**: Speed gains depend on I/O overlap. CPU-bound face detection uses ThreadPoolExecutor to avoid blocking the async event loop. Actual parallelism is limited by Python's GIL for CPU-intensive operations.
 
 **Bottlenecks:**
 - External HDD I/O is typically the limiting factor
