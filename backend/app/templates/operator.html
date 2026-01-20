@@ -6,14 +6,6 @@
     <title>Operator Panel - Face Segregation</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <script src="/static/js/lucide.min.js"></script>
-    <style>
-        .icon { display: inline-block; vertical-align: middle; width: 18px; height: 18px; stroke: currentColor; stroke-width: 2; fill: none; }
-        .icon-sm { width: 14px; height: 14px; }
-        .icon-lg { width: 20px; height: 20px; }
-        .panel h2 .icon { margin-right: 8px; }
-        .btn .icon { margin-right: 4px; }
-        .back-link .icon { margin-right: 4px; }
-    </style>
 </head>
 <body class="operator-page">
     <div class="container operator-container">
@@ -58,25 +50,34 @@
             <!-- 3. Job Status -->
             <section class="panel" id="job-status-panel">
                 <h2><i data-lucide="activity" class="icon"></i>Job Status</h2>
-                <div class="job-control">
-                    <div id="job-status-display" class="job-status-display">
-                        <p class="loading">Loading...</p>
-                    </div>
-                    <div class="job-buttons">
-                        <button id="btn-start-job" class="btn btn-start" onclick="startJob()" disabled><i data-lucide="play" class="icon icon-sm"></i>Start Job</button>
-                        <span class="job-buttons-sep" aria-hidden="true"></span>
-                        <button id="btn-stop-job" class="btn btn-stop" onclick="stopJob()" disabled><i data-lucide="pause" class="icon icon-sm"></i>Stop Job</button>
-                        <button id="btn-terminate-job" class="btn btn-terminate" onclick="terminateJob()" disabled><i data-lucide="square" class="icon icon-sm"></i>Terminate</button>
-                        <p id="job-terminate-hint" class="job-hint" style="display: none;">Terminate: no new photos analysed; only in-flight writes to output will finish, then stop.</p>
-                </div>
-                <div class="worker-status-section">
-                    <h3>Worker Process</h3>
-                    <div id="worker-status" class="worker-status">
-                        <div class="status-indicator offline">
-                            <span class="dot"></span>
-                            <span class="text">Worker Offline</span>
+                
+                <div class="job-status-content-v2">
+                    <div id="job-status-card-inner" class="status-card-inner">
+                        <div id="job-status-display-v2" class="status-display-v2">
+                            <div class="status-badge-apple idle" id="job-status-badge">
+                                <span class="dot"></span>
+                                <span id="status-label">Idle</span>
+                            </div>
+                            <div id="job-status-message-v2" class="status-message-v2">Ready to process images</div>
                         </div>
-                        <p class="worker-hint">Start the worker with: <code>python scripts/run_worker.py</code></p>
+
+                        <div class="job-primary-actions">
+                            <button id="btn-job-action" class="btn btn-pill-apple primary" onclick="handleJobActionMain()" disabled>
+                                <i data-lucide="play" class="icon icon-sm"></i>
+                                <span>Start Job</span>
+                            </button>
+                            <button id="btn-job-terminate-mini" class="btn-icon-subtle" onclick="terminateJob()" disabled title="Terminate immediately">
+                                <i data-lucide="x-circle" class="icon"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="worker-status-refined">
+                        <div class="worker-connection">
+                            <div id="worker-dot-v2" class="connection-dot offline"></div>
+                            <span id="worker-text-v2">Worker Offline</span>
+                        </div>
+                        <p id="worker-hint-v2" class="worker-hint-mini">Run <code>python scripts/run_worker.py</code></p>
                     </div>
                 </div>
             </section>
@@ -84,22 +85,36 @@
             <!-- 4. Job Progress -->
             <section class="panel" id="job-progress-panel">
                 <h2><i data-lucide="bar-chart-2" class="icon"></i>Job Progress</h2>
+                
+                <!-- Initial state message (shown before first batch) -->
+                <div id="progress-initializing" class="progress-initializing" style="display: none;">
+                    <div class="initializing-icon">
+                        <i data-lucide="loader-2" class="icon icon-lg spin"></i>
+                    </div>
+                    <div class="initializing-text">
+                        <span class="initializing-title">Preparing...</span>
+                        <span class="initializing-detail">Discovering images and initializing first batch</span>
+                    </div>
+                </div>
+                
                 <div id="progress-section" class="progress-section" style="display: none;">
                     <div id="progress-source-line" class="progress-source-line"></div>
-                    <div id="progress-current-image" class="progress-current-image" style="display: none;"></div>
-                    <div id="progress-speed" class="progress-speed" style="display: none;"></div>
+                    <!-- Always visible to prevent layout shift -->
+                    <div id="progress-current-image" class="progress-current-image">&nbsp;</div>
+                    <div id="progress-speed" class="progress-speed">&nbsp;</div>
                     
-                    <!-- Speed Graph -->
+                    <!-- Speed Graph - Apple-style green gradient -->
                     <div id="speed-graph-container" class="speed-graph-container" style="display:none; width: 100%; height: 60px; margin: 0.5rem 0;">
-                        <svg width="100%" height="100%" preserveAspectRatio="none">
+                        <svg width="100%" height="100%" viewBox="0 0 300 60" preserveAspectRatio="none">
                             <defs>
                                 <linearGradient id="speedGradient" x1="0" x2="0" y1="0" y2="1">
-                                    <stop offset="0%" stop-color="var(--accent-cyan)" stop-opacity="0.3"/>
-                                    <stop offset="100%" stop-color="var(--accent-cyan)" stop-opacity="0"/>
+                                    <stop offset="0%" stop-color="#34C759" stop-opacity="0.5"/>
+                                    <stop offset="50%" stop-color="#30D158" stop-opacity="0.25"/>
+                                    <stop offset="100%" stop-color="#32D74B" stop-opacity="0.05"/>
                                 </linearGradient>
                             </defs>
                             <path id="speed-graph-area" fill="url(#speedGradient)" d=""></path>
-                            <path id="speed-graph-line" fill="none" stroke="var(--accent-cyan)" stroke-width="2" d=""></path>
+                            <path id="speed-graph-line" fill="none" stroke="#34C759" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d=""></path>
                         </svg>
                     </div>
 
@@ -108,6 +123,11 @@
                         <div id="progress-text" class="progress-text">—</div>
                         <div id="progress-time" class="progress-time"></div>
                     </div>
+                </div>
+                
+                <!-- No job message -->
+                <div id="progress-empty" class="progress-empty">
+                    <p>No active job. Configure source/output directories and start a job.</p>
                 </div>
             </section>
             
@@ -148,9 +168,11 @@
                         </div>
                         <small>Base path where person folders will be created</small>
                     </div>
-                    <button type="submit" class="btn btn-primary"><i data-lucide="save" class="icon icon-sm"></i>Save Configuration</button>
                 </form>
                 <div id="job-config-status" class="status-message"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" form="job-config-form" class="btn btn-primary"><i data-lucide="check" class="icon icon-sm"></i>Save</button>
             </div>
         </div>
     </div>
@@ -206,11 +228,10 @@
                             </div>
                         </div>
                         <div class="form-group">
-                            <label for="reference-image">Reference Images (select multiple for better accuracy)</label>
+                            <label for="reference-image">Reference Images (select multiple)</label>
                             <input type="file" id="reference-image" name="reference_image" accept=".jpg,.jpeg,.png" multiple required>
                             <small>Each photo must have exactly ONE face. Select multiple with Ctrl+Click.</small>
                         </div>
-                        <button type="submit" class="btn btn-primary"><i data-lucide="user-plus" class="icon icon-sm"></i>Add Person</button>
                     </form>
                     <div id="seed-person-status" class="status-message"></div>
                 </div>
@@ -224,6 +245,7 @@
             </div>
             <div class="modal-footer">
                 <button class="btn" onclick="closePersonRegistryModal()"><i data-lucide="x" class="icon icon-sm"></i>Close</button>
+                <button id="btn-submit-seed" type="submit" form="seed-person-form" class="btn btn-primary"><i data-lucide="user-plus" class="icon icon-sm"></i>Add Person</button>
             </div>
         </div>
     </div>
