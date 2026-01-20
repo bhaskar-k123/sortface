@@ -5,100 +5,121 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Operator Panel - Face Segregation</title>
     <link rel="stylesheet" href="/static/css/style.css">
+    <script src="/static/js/lucide.min.js"></script>
+    <style>
+        .icon { display: inline-block; vertical-align: middle; width: 18px; height: 18px; stroke: currentColor; stroke-width: 2; fill: none; }
+        .icon-sm { width: 14px; height: 14px; }
+        .icon-lg { width: 20px; height: 20px; }
+        .panel h2 .icon { margin-right: 8px; }
+        .btn .icon { margin-right: 4px; }
+        .back-link .icon { margin-right: 4px; }
+    </style>
 </head>
 <body class="operator-page">
     <div class="container operator-container">
         <header class="header operator-header">
-            <a href="/" class="back-link">← Back</a>
+            <a href="/" class="back-link"><i data-lucide="arrow-left" class="icon icon-sm"></i>Back</a>
             <h1>Operator Panel</h1>
             <p class="subtitle">Configure jobs and seed identities</p>
         </header>
         
         <main class="operator-grid">
-            <!-- Left: Job Config + Search For (stacked, small gap) -->
-            <div class="operator-cell operator-cell-left">
-                <section class="panel" id="job-config-card">
-                    <h2>Job Configuration</h2>
-                    <div class="job-config-summary">
-                        <div class="job-config-block">
-                            <div class="job-config-label">Source</div>
-                            <div class="job-config-value-row">
-                                <span id="job-config-source" class="job-config-path">—</span>
-                                <button type="button" class="btn btn-small" onclick="openJobConfigModal()">Edit</button>
-                            </div>
-                        </div>
-                        <div class="job-config-block">
-                            <div class="job-config-label">Output</div>
-                            <div class="job-config-value-row">
-                                <span id="job-config-output" class="job-config-path">—</span>
-                                <button type="button" class="btn btn-small" onclick="openJobConfigModal()">Edit</button>
-                            </div>
+            <!-- 1. Job Config -->
+            <section class="panel" id="job-config-card">
+                <h2><i data-lucide="settings" class="icon"></i>Job Configuration</h2>
+                <div class="job-config-summary">
+                    <div class="job-config-block">
+                        <div class="job-config-label">Source</div>
+                        <div class="job-config-value-row">
+                            <span id="job-config-source" class="job-config-path">—</span>
+                            <button type="button" class="btn btn-small" onclick="openJobConfigModal()"><i data-lucide="pencil" class="icon icon-sm"></i>Edit</button>
                         </div>
                     </div>
-                    <div id="job-config-card-status" class="status-message"></div>
-                </section>
-                <section class="panel" id="job-control-panel">
-                    <h2>Search For</h2>
-                    <div id="person-selection-compact" class="person-selection-compact">
-                        <span id="person-selection-summary">—</span>
-                        <button type="button" class="btn btn-small" onclick="openPersonSelectionModal()">Change</button>
+                    <div class="job-config-block">
+                        <div class="job-config-label">Output</div>
+                        <div class="job-config-value-row">
+                            <span id="job-config-output" class="job-config-path">—</span>
+                            <button type="button" class="btn btn-small" onclick="openJobConfigModal()"><i data-lucide="pencil" class="icon icon-sm"></i>Edit</button>
+                        </div>
                     </div>
-                </section>
-                <section class="panel" id="job-status-panel">
-                    <h2>Job Status</h2>
-                    <div class="job-control">
-                        <div id="job-status-display" class="job-status-display">
-                            <p class="loading">Loading...</p>
-                        </div>
-                        <div class="job-buttons">
-                            <button id="btn-start-job" class="btn btn-start" onclick="startJob()" disabled>▶ Start Job</button>
-                            <span class="job-buttons-sep" aria-hidden="true"></span>
-                            <button id="btn-stop-job" class="btn btn-stop" onclick="stopJob()" disabled>⏹ Stop Job</button>
-                            <button id="btn-terminate-job" class="btn btn-terminate" onclick="terminateJob()" disabled>⏹ Terminate</button>
-                        </div>
+                </div>
+                <div id="job-config-card-status" class="status-message"></div>
+            </section>
+
+            <!-- 2. Search For -->
+            <section class="panel" id="job-control-panel">
+                <h2><i data-lucide="search" class="icon"></i>Search For</h2>
+                <div id="person-selection-compact" class="person-selection-compact">
+                    <span id="person-selection-summary">—</span>
+                    <button type="button" class="btn btn-small" onclick="openPersonSelectionModal()"><i data-lucide="users" class="icon icon-sm"></i>Change</button>
+                </div>
+            </section>
+
+            <!-- 3. Job Status -->
+            <section class="panel" id="job-status-panel">
+                <h2><i data-lucide="activity" class="icon"></i>Job Status</h2>
+                <div class="job-control">
+                    <div id="job-status-display" class="job-status-display">
+                        <p class="loading">Loading...</p>
+                    </div>
+                    <div class="job-buttons">
+                        <button id="btn-start-job" class="btn btn-start" onclick="startJob()" disabled><i data-lucide="play" class="icon icon-sm"></i>Start Job</button>
+                        <span class="job-buttons-sep" aria-hidden="true"></span>
+                        <button id="btn-stop-job" class="btn btn-stop" onclick="stopJob()" disabled><i data-lucide="pause" class="icon icon-sm"></i>Stop Job</button>
+                        <button id="btn-terminate-job" class="btn btn-terminate" onclick="terminateJob()" disabled><i data-lucide="square" class="icon icon-sm"></i>Terminate</button>
                         <p id="job-terminate-hint" class="job-hint" style="display: none;">Terminate: no new photos analysed; only in-flight writes to output will finish, then stop.</p>
-                    </div>
-                </section>
-            </div>
-
-            <!-- Top Right: Job Progress -->
-            <div class="operator-cell">
-                <section class="panel" id="job-progress-panel">
-                    <h2>Job Progress</h2>
-                    <div id="progress-section" class="progress-section" style="display: none;">
-                        <div id="progress-source-line" class="progress-source-line"></div>
-                        <div id="progress-current-image" class="progress-current-image" style="display: none;"></div>
-                        <div id="progress-speed" class="progress-speed" style="display: none;"></div>
-                        <div id="progress-display" class="progress-display">
-                            <div class="progress-bar-wrap"><div id="progress-bar" class="progress-bar" style="width: 0%;"></div></div>
-                            <div id="progress-text" class="progress-text">—</div>
-                            <div id="progress-time" class="progress-time"></div>
+                </div>
+                <div class="worker-status-section">
+                    <h3>Worker Process</h3>
+                    <div id="worker-status" class="worker-status">
+                        <div class="status-indicator offline">
+                            <span class="dot"></span>
+                            <span class="text">Worker Offline</span>
                         </div>
+                        <p class="worker-hint">Start the worker with: <code>python scripts/run_worker.py</code></p>
                     </div>
-                    <div class="worker-status-section">
-                        <h3>Worker Process</h3>
-                        <div id="worker-status" class="worker-status">
-                            <div class="status-indicator offline">
-                                <span class="dot"></span>
-                                <span class="text">Worker Offline</span>
-                            </div>
-                            <p class="worker-hint">Start the worker with: <code>python scripts/run_worker.py</code></p>
-                        </div>
-                    </div>
-                </section>
-            </div>
+                </div>
+            </section>
 
-            <!-- Bottom Right: Person Registry -->
-            <div class="operator-cell">
-                <section class="panel person-registry-card" id="person-registry-card">
-                    <div class="registry-card-header">
-                        <h2>Person Registry</h2>
+            <!-- 4. Job Progress -->
+            <section class="panel" id="job-progress-panel">
+                <h2><i data-lucide="bar-chart-2" class="icon"></i>Job Progress</h2>
+                <div id="progress-section" class="progress-section" style="display: none;">
+                    <div id="progress-source-line" class="progress-source-line"></div>
+                    <div id="progress-current-image" class="progress-current-image" style="display: none;"></div>
+                    <div id="progress-speed" class="progress-speed" style="display: none;"></div>
+                    
+                    <!-- Speed Graph -->
+                    <div id="speed-graph-container" class="speed-graph-container" style="display:none; width: 100%; height: 60px; margin: 0.5rem 0;">
+                        <svg width="100%" height="100%" preserveAspectRatio="none">
+                            <defs>
+                                <linearGradient id="speedGradient" x1="0" x2="0" y1="0" y2="1">
+                                    <stop offset="0%" stop-color="var(--accent-cyan)" stop-opacity="0.3"/>
+                                    <stop offset="100%" stop-color="var(--accent-cyan)" stop-opacity="0"/>
+                                </linearGradient>
+                            </defs>
+                            <path id="speed-graph-area" fill="url(#speedGradient)" d=""></path>
+                            <path id="speed-graph-line" fill="none" stroke="var(--accent-cyan)" stroke-width="2" d=""></path>
+                        </svg>
                     </div>
-                    <div id="registry-thumb-grid" class="registry-thumb-grid" onclick="openPersonRegistryModal('list')">
-                        <!-- 5 thumbs + add circle, filled by JS -->
+
+                    <div id="progress-display" class="progress-display">
+                        <div class="progress-bar-wrap"><div id="progress-bar" class="progress-bar" style="width: 0%;"></div></div>
+                        <div id="progress-text" class="progress-text">—</div>
+                        <div id="progress-time" class="progress-time"></div>
                     </div>
-                </section>
-            </div>
+                </div>
+            </section>
+            
+            <!-- 5. Person Registry -->
+            <section class="panel person-registry-card" id="person-registry-card">
+                <div class="registry-card-header">
+                    <h2><i data-lucide="users" class="icon"></i>Person Registry</h2>
+                </div>
+                <div id="registry-thumb-grid" class="registry-thumb-grid" onclick="openPersonRegistryModal('list')">
+                    <!-- 5 thumbs + add circle, filled by JS -->
+                </div>
+            </section>
         </main>
     </div>
     
@@ -106,8 +127,8 @@
     <div id="job-config-modal" class="modal" style="display: none;">
         <div class="modal-content modal-large">
             <div class="modal-header">
-                <h3>Job Configuration</h3>
-                <button class="modal-close" onclick="closeJobConfigModal()">&times;</button>
+                <h3><i data-lucide="settings" class="icon"></i>Job Configuration</h3>
+                <button class="modal-close" onclick="closeJobConfigModal()"><i data-lucide="x" class="icon"></i></button>
             </div>
             <div class="modal-body">
                 <form id="job-config-form" class="form">
@@ -115,7 +136,7 @@
                         <label for="source-root">Source Directory (External HDD - Read Only)</label>
                         <div class="input-with-button">
                             <input type="text" id="source-root" name="source_root" placeholder="E:\EventPhotos\Raw" required>
-                            <button type="button" class="btn btn-browse" onclick="openFolderBrowser('source-root')">Browse</button>
+                            <button type="button" class="btn btn-browse" onclick="openFolderBrowser('source-root')"><i data-lucide="folder-open" class="icon icon-sm"></i>Browse</button>
                         </div>
                         <small>Path to folder containing event photos (.jpg, .jpeg, .arw)</small>
                     </div>
@@ -123,11 +144,11 @@
                         <label for="output-root">Output Directory (External HDD - Append Only)</label>
                         <div class="input-with-button">
                             <input type="text" id="output-root" name="output_root" placeholder="E:\EventPhotos\Sorted" required>
-                            <button type="button" class="btn btn-browse" onclick="openFolderBrowser('output-root')">Browse</button>
+                            <button type="button" class="btn btn-browse" onclick="openFolderBrowser('output-root')"><i data-lucide="folder-open" class="icon icon-sm"></i>Browse</button>
                         </div>
                         <small>Base path where person folders will be created</small>
                     </div>
-                    <button type="submit" class="btn btn-primary">Save Configuration</button>
+                    <button type="submit" class="btn btn-primary"><i data-lucide="save" class="icon icon-sm"></i>Save Configuration</button>
                 </form>
                 <div id="job-config-status" class="status-message"></div>
             </div>
@@ -138,8 +159,8 @@
     <div id="person-selection-modal" class="modal" style="display: none;">
         <div class="modal-content modal-large">
             <div class="modal-header">
-                <h3>Search For</h3>
-                <button class="modal-close" onclick="closePersonSelectionModal()">&times;</button>
+                <h3><i data-lucide="search" class="icon"></i>Search For</h3>
+                <button class="modal-close" onclick="closePersonSelectionModal()"><i data-lucide="x" class="icon"></i></button>
             </div>
             <div class="modal-body">
                 <p class="selection-hint">Select which persons to search for in this job:</p>
@@ -152,8 +173,8 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn" onclick="closePersonSelectionModal()">Close</button>
-                <button class="btn btn-primary" onclick="applyPersonSelection()">Apply</button>
+                <button class="btn" onclick="closePersonSelectionModal()"><i data-lucide="x" class="icon icon-sm"></i>Close</button>
+                <button class="btn btn-primary" onclick="applyPersonSelection()"><i data-lucide="check" class="icon icon-sm"></i>Apply</button>
             </div>
         </div>
     </div>
@@ -162,12 +183,12 @@
     <div id="person-registry-modal" class="modal" style="display: none;">
         <div class="modal-content modal-large">
             <div class="modal-header">
-                <h3>Person Registry</h3>
-                <button class="modal-close" onclick="closePersonRegistryModal()">&times;</button>
+                <h3><i data-lucide="users" class="icon"></i>Person Registry</h3>
+                <button class="modal-close" onclick="closePersonRegistryModal()"><i data-lucide="x" class="icon"></i></button>
             </div>
             <div class="modal-tabs">
-                <button type="button" class="modal-tab active" data-tab="add" onclick="switchPersonRegistryTab('add')">Add Person</button>
-                <button type="button" class="modal-tab" data-tab="list" onclick="switchPersonRegistryTab('list')">Registered Persons</button>
+                <button type="button" class="modal-tab active" data-tab="add" onclick="switchPersonRegistryTab('add')"><i data-lucide="user-plus" class="icon icon-sm"></i>Add Person</button>
+                <button type="button" class="modal-tab" data-tab="list" onclick="switchPersonRegistryTab('list')"><i data-lucide="list" class="icon icon-sm"></i>Registered Persons</button>
             </div>
             <div class="modal-body">
                 <div id="person-registry-tab-add" class="modal-tab-pane active">
@@ -189,7 +210,7 @@
                             <input type="file" id="reference-image" name="reference_image" accept=".jpg,.jpeg,.png" multiple required>
                             <small>Each photo must have exactly ONE face. Select multiple with Ctrl+Click.</small>
                         </div>
-                        <button type="submit" class="btn btn-primary">Add Person</button>
+                        <button type="submit" class="btn btn-primary"><i data-lucide="user-plus" class="icon icon-sm"></i>Add Person</button>
                     </form>
                     <div id="seed-person-status" class="status-message"></div>
                 </div>
@@ -202,7 +223,7 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn" onclick="closePersonRegistryModal()">Close</button>
+                <button class="btn" onclick="closePersonRegistryModal()"><i data-lucide="x" class="icon icon-sm"></i>Close</button>
             </div>
         </div>
     </div>
@@ -212,17 +233,17 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3 id="person-details-name">—</h3>
-                <button class="modal-close" onclick="closePersonDetailsModal()">&times;</button>
+                <button class="modal-close" onclick="closePersonDetailsModal()"><i data-lucide="x" class="icon"></i></button>
             </div>
             <div class="modal-body">
                 <p class="person-details-row"><span class="label">Output folder:</span> <span id="person-details-folder" class="value">—</span></p>
                 <p class="person-details-row"><span class="label">References:</span> <span id="person-details-embeddings" class="value">—</span></p>
                 <div class="add-ref-section">
-                    <label class="add-ref-label" for="person-details-ref-input">➕ Add more references (select multiple)</label>
+                    <label class="add-ref-label" for="person-details-ref-input"><i data-lucide="plus" class="icon icon-sm"></i> Add more references (select multiple)</label>
                     <input type="file" id="person-details-ref-input" class="add-ref-input" accept=".jpg,.jpeg,.png" multiple onchange="onPersonDetailsAddRef(this)">
                 </div>
                 <div class="person-details-delete">
-                    <button type="button" class="btn btn-danger" onclick="deletePersonFromDetailsFromModal()">Delete Person</button>
+                    <button type="button" class="btn btn-danger" onclick="deletePersonFromDetailsFromModal()"><i data-lucide="trash-2" class="icon icon-sm"></i>Delete Person</button>
                 </div>
             </div>
         </div>
@@ -232,13 +253,13 @@
     <div id="folder-browser-modal" class="modal" style="display: none;">
         <div class="modal-content modal-large">
             <div class="modal-header">
-                <h3>📂 Select Folder</h3>
-                <button class="modal-close" onclick="closeFolderBrowser()">&times;</button>
+                <h3><i data-lucide="folder" class="icon"></i>Select Folder</h3>
+                <button class="modal-close" onclick="closeFolderBrowser()"><i data-lucide="x" class="icon"></i></button>
             </div>
             <div class="modal-body">
                 <div class="folder-nav-bar">
-                    <button class="btn btn-nav" onclick="loadFolders(null)" title="Show all drives">🖥️ Drives</button>
-                    <button class="btn btn-nav" onclick="navigateToParent()" id="btn-parent" title="Go up one level">⬆️ Up</button>
+                    <button class="btn btn-nav" onclick="loadFolders(null)" title="Show all drives"><i data-lucide="hard-drive" class="icon icon-sm"></i>Drives</button>
+                    <button class="btn btn-nav" onclick="navigateToParent()" id="btn-parent" title="Go up one level"><i data-lucide="arrow-up" class="icon icon-sm"></i>Up</button>
                 </div>
                 <div class="folder-path-display">
                     <span class="path-label">Current:</span>
@@ -249,12 +270,24 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn" onclick="closeFolderBrowser()">Cancel</button>
-                <button class="btn btn-primary" onclick="selectCurrentFolder()">✓ Select This Folder</button>
+                <button class="btn" onclick="closeFolderBrowser()"><i data-lucide="x" class="icon icon-sm"></i>Cancel</button>
+                <button class="btn btn-primary" onclick="selectCurrentFolder()"><i data-lucide="check" class="icon icon-sm"></i>Select This Folder</button>
             </div>
         </div>
     </div>
     
+    <script src="/static/js/anime.min.js"></script>
+    <script src="/static/js/animations.js"></script>
     <script src="/static/js/operator.js"></script>
+    <script>
+        lucide.createIcons();
+        document.addEventListener('DOMContentLoaded', () => {
+            // Animate panels on load
+            Animations.pageLoad('.operator-header, .operator-cell .panel', {
+                stagger: 100,
+                duration: 600
+            });
+        });
+    </script>
 </body>
 </html>

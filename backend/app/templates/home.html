@@ -25,6 +25,19 @@
             <p>Local system • No cloud • No uploads</p>
         </footer>
     </div>
+
+    <!-- Scripts -->
+    <script src="/static/js/anime.min.js"></script>
+    <script src="/static/js/animations.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Animate header and cards
+            Animations.pageLoad('.header > *, .nav-card, .footer', {
+                stagger: 100,
+                duration: 600
+            });
+        });
+    </script>
 </body>
 </html>
 

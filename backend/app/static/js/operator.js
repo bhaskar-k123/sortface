@@ -17,6 +17,14 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(refreshJobAndProgress, 1000);
     setupJobConfigForm();
     setupSeedPersonForm();
+    
+    // Add global button press handlers
+    document.addEventListener('mousedown', (e) => {
+        const btn = e.target.closest('.btn');
+        if (btn && window.Animations) {
+            Animations.buttonPress(btn);
+        }
+    });
 });
 
 /**
@@ -40,6 +48,11 @@ async function loadPersons() {
                     <div class="name">${escapeHtml(person.name)}</div>
                 </div>
             `).join('');
+            
+            // Animate cards
+            if (window.Animations) {
+                Animations.cards(container.querySelectorAll('.person-card'));
+            }
         } else {
             container.innerHTML = '<p class="loading">No persons registered yet</p>';
         }
@@ -69,11 +82,18 @@ async function loadRegistryCard() {
                 cells.push('<div class="registry-thumb-cell placeholder"></div>');
             }
         }
-        cells.push('<div class="registry-thumb-cell add-person-cell" onclick="event.stopPropagation(); openPersonRegistryModal(\'add\');" title="Add person">+</div>');
+        cells.push('<div class="registry-thumb-cell add-person-cell" onclick="event.stopPropagation(); openPersonRegistryModal(\'add\');" title="Add person"><i data-lucide="plus" class="icon-lg"></i></div>');
         grid.innerHTML = cells.join('');
+        lucide.createIcons();
+        
+        // Animate grid cells
+        if (window.Animations) {
+            Animations.cards(grid.querySelectorAll('.registry-thumb-cell'));
+        }
     } catch (error) {
         grid.innerHTML = Array(9).fill('<div class="registry-thumb-cell placeholder"></div>').join('') +
-            '<div class="registry-thumb-cell add-person-cell" onclick="event.stopPropagation(); openPersonRegistryModal(\'add\');" title="Add person">+</div>';
+            '<div class="registry-thumb-cell add-person-cell" onclick="event.stopPropagation(); openPersonRegistryModal(\'add\');" title="Add person"><i data-lucide="plus" class="icon-lg"></i></div>';
+        lucide.createIcons();
         console.error('Error loading registry card:', error);
     }
 }
@@ -140,9 +160,27 @@ function togglePersonSelection(personId, element) {
     if (selectedPersonIds.has(personId)) {
         selectedPersonIds.delete(personId);
         element.classList.remove('selected');
+        // Animation: subtle press
+        if (window.Animations) {
+             anime({
+                targets: element,
+                scale: [1, 0.95, 1],
+                duration: 200,
+                easing: 'easeOutQuad'
+            });
+        }
     } else {
         selectedPersonIds.add(personId);
         element.classList.add('selected');
+        // Animation: pop effect
+        if (window.Animations) {
+            anime({
+                targets: element,
+                scale: [1, 1.05, 1],
+                duration: 300,
+                easing: 'easeOutBack'
+            });
+        }
     }
 }
 
@@ -415,12 +453,11 @@ async function loadProgress() {
         var done = d.processed_images || 0;
         var pct = d.completion_percent || 0;
         if (total > 0) {
-            section.style.display = 'block';
+            section.style.display = 'flex';
             if (sourceLine) {
-                var src = d.source_root || '';
-                var out = d.output_root || '';
-                if (src) sourceLine.innerHTML = 'Processing: <span class="progress-dir">' + escapeHtml(src) + '</span>' + (out ? ' &nbsp;|&nbsp; Output: <span class="progress-dir">' + escapeHtml(out) + '</span>' : '');
-                else sourceLine.innerHTML = '';
+                // User requested to hide paths during processing to clean up UI
+                sourceLine.style.display = 'none';
+                sourceLine.innerHTML = '';
             }
             if (currentImageEl) {
                 if (d.current_image && String(d.current_image).trim()) {
@@ -435,6 +472,7 @@ async function loadProgress() {
                 if (d.images_per_second != null && d.images_per_second > 0) {
                     speedEl.textContent = 'Speed: ' + Number(d.images_per_second).toFixed(2) + ' img/s';
                     speedEl.style.display = 'block';
+                    updateSpeedGraph(d.images_per_second);
                 } else {
                     speedEl.style.display = 'none';
                     speedEl.textContent = '';
@@ -570,6 +608,63 @@ function setupJobConfigForm() {
     });
 }
 
+// ============================================================================
+// Speed Graph Visualization
+// ============================================================================
+
+let speedHistory = [];
+const MAX_HISTORY = 60; // 1 minute window at 1s polling
+
+function updateSpeedGraph(speed) {
+    const container = document.getElementById('speed-graph-container');
+    if (!container) return;
+    
+    // Show container if it was hidden
+    if (container.style.display === 'none') {
+        container.style.display = 'block';
+    }
+    
+    // Update history
+    speedHistory.push(speed);
+    if (speedHistory.length > MAX_HISTORY) {
+        speedHistory.shift();
+    }
+    
+    if (speedHistory.length < 2) return;
+
+    const width = 300; // SVG viewBox width
+    const height = 60; // SVG viewBox height
+    
+    // Dynamic max speed for Y-axis scaling (min 5 to prevent flat lines)
+    const maxSpeed = Math.max(Math.max(...speedHistory), 5) * 1.2;
+    
+    // Generate coordinate points
+    const points = speedHistory.map((val, idx) => {
+        // Map index to 0..width based on MAX_HISTORY capacity
+        // This makes the graph grow from left to right initially
+        const x = (idx / (MAX_HISTORY - 1)) * width; 
+        
+        // Map speed to height..0 (inverted Y)
+        const y = height - ((val / maxSpeed) * height);
+        return [x, y];
+    });
+    
+    // Create Line Path (M x0 y0 L x1 y1 ...)
+    const lineD = "M " + points.map(p => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(" L ");
+    
+    // Create Area Path (Line + fill to bottom)
+    const lastPoint = points[points.length - 1];
+    const firstPoint = points[0];
+    const areaD = lineD + ` L ${lastPoint[0].toFixed(1)} ${height} L ${firstPoint[0].toFixed(1)} ${height} Z`;
+    
+    // Update DOM
+    const areaPath = document.getElementById('speed-graph-area');
+    const linePath = document.getElementById('speed-graph-line');
+    
+    if (areaPath) areaPath.setAttribute('d', areaD);
+    if (linePath) linePath.setAttribute('d', lineD);
+}
+
 /**
  * Setup person seeding form handler
  * Supports multiple reference images when creating a new person
@@ -674,6 +769,11 @@ function showStatus(element, type, message) {
     element.className = `status-message ${type}`;
     element.textContent = message;
     
+    // Animate
+    if (window.Animations) {
+        Animations.statusMessage(element, type);
+    }
+    
     // Auto-hide success messages after 5 seconds
     if (type === 'success') {
         setTimeout(() => {
@@ -696,18 +796,18 @@ function escapeHtml(text) {
 // ============================================================================
 
 function openJobConfigModal() {
-    document.getElementById('job-config-modal').style.display = 'flex';
+    Animations.modalOpen(document.getElementById('job-config-modal'));
 }
 function closeJobConfigModal() {
-    document.getElementById('job-config-modal').style.display = 'none';
+    Animations.modalClose(document.getElementById('job-config-modal'));
 }
 
 function openPersonSelectionModal() {
     loadPersonSelection();
-    document.getElementById('person-selection-modal').style.display = 'flex';
+    Animations.modalOpen(document.getElementById('person-selection-modal'));
 }
 function closePersonSelectionModal() {
-    document.getElementById('person-selection-modal').style.display = 'none';
+    Animations.modalClose(document.getElementById('person-selection-modal'));
 }
 
 async function applyPersonSelection() {
@@ -741,11 +841,11 @@ async function applyPersonSelection() {
 }
 
 function openPersonRegistryModal(tab) {
-    document.getElementById('person-registry-modal').style.display = 'flex';
+    Animations.modalOpen(document.getElementById('person-registry-modal'));
     switchPersonRegistryTab(tab || 'add');
 }
 function closePersonRegistryModal() {
-    document.getElementById('person-registry-modal').style.display = 'none';
+    Animations.modalClose(document.getElementById('person-registry-modal'));
 }
 
 /**
@@ -765,12 +865,12 @@ function openPersonDetailsModal(cardEl) {
     document.getElementById('person-details-embeddings').textContent = count + ' reference(s)';
     const refInput = document.getElementById('person-details-ref-input');
     if (refInput) refInput.value = '';
-    modal.style.display = 'flex';
+    Animations.modalOpen(modal);
 }
 
 function closePersonDetailsModal() {
     const modal = document.getElementById('person-details-modal');
-    if (modal) modal.style.display = 'none';
+    if (modal) Animations.modalClose(modal);
 }
 
 /**
@@ -836,7 +936,7 @@ function openFolderBrowser(inputId) {
     const currentValue = document.getElementById(inputId).value;
     
     // Show modal
-    document.getElementById('folder-browser-modal').style.display = 'flex';
+    Animations.modalOpen(document.getElementById('folder-browser-modal'));
     
     // Load folders (start from current value or root)
     if (currentValue && currentValue.trim()) {
@@ -850,7 +950,7 @@ function openFolderBrowser(inputId) {
  * Close the folder browser modal
  */
 function closeFolderBrowser() {
-    document.getElementById('folder-browser-modal').style.display = 'none';
+    Animations.modalClose(document.getElementById('folder-browser-modal'));
     folderBrowserState.targetInputId = null;
 }
 

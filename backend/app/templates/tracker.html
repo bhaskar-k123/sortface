@@ -115,7 +115,24 @@
         </footer>
     </div>
     
+    <script src="/static/js/anime.min.js"></script>
+    <script src="/static/js/animations.js"></script>
     <script src="/static/js/tracker.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Animate layout
+            Animations.pageLoad('.header, .tracker-main .panel', {
+                stagger: 100,
+                duration: 600
+            });
+            
+            // Animate stat cards specifically
+            setTimeout(() => {
+                Animations.cards('.stat-card');
+            }, 300);
+        });
+    </script>
 </body>
 </html>
 
