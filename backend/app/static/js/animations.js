@@ -36,6 +36,7 @@ function animateModalOpen(modal, onComplete) {
     }
     
     const content = modal.querySelector('.modal-content');
+    modal.classList.add('active'); // Apply visibility: visible and opacity: 1 (base layer)
     modal.style.display = 'flex';
     modal.style.opacity = '0';
     
@@ -100,6 +101,7 @@ function animateModalClose(modal, onComplete) {
         easing: 'linear',
         complete: () => {
             modal.style.display = 'none';
+            modal.classList.remove('active'); // Reset visibility for next open
             // Reset styles for next open
             modal.style.opacity = '';
             if (content) {

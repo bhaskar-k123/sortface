@@ -43,11 +43,12 @@ async function loadPersons() {
                         <img src="/api/operator/persons/${person.person_id}/thumbnail" 
                              alt="${escapeHtml(person.name)}"
                              onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                        <div class="avatar-placeholder" style="display:none;">👤</div>
+                        <div class="avatar-placeholder" style="display:none;"><i data-lucide="user" class="icon icon-lg"></i></div>
                     </div>
                     <div class="name">${escapeHtml(person.name)}</div>
                 </div>
             `).join('');
+            lucide.createIcons();
             
             // Animate cards
             if (window.Animations) {
@@ -77,9 +78,9 @@ async function loadRegistryCard() {
         for (let i = 0; i < 9; i++) {
             const p = persons[i];
             if (p) {
-                cells.push(`<div class="registry-thumb-cell"><img src="/api/operator/persons/${p.person_id}/thumbnail" alt="" onerror="this.parentElement.classList.add('placeholder'); this.remove();"></div>`);
+                cells.push(`<div class="registry-thumb-cell"><img src="/api/operator/persons/${p.person_id}/thumbnail" alt="" onerror="this.parentElement.classList.add('placeholder'); this.innerHTML='<i data-lucide=\'user\' class=\'icon\'></i>';"></div>`);
             } else {
-                cells.push('<div class="registry-thumb-cell placeholder"></div>');
+                cells.push('<div class="registry-thumb-cell placeholder"><i data-lucide="user" class="icon"></i></div>');
             }
         }
         cells.push('<div class="registry-thumb-cell add-person-cell" onclick="event.stopPropagation(); openPersonRegistryModal(\'add\');" title="Add person"><i data-lucide="plus" class="icon-lg"></i></div>');
@@ -91,7 +92,7 @@ async function loadRegistryCard() {
             Animations.cards(grid.querySelectorAll('.registry-thumb-cell'));
         }
     } catch (error) {
-        grid.innerHTML = Array(9).fill('<div class="registry-thumb-cell placeholder"></div>').join('') +
+        grid.innerHTML = Array(9).fill('<div class="registry-thumb-cell placeholder"><i data-lucide="user" class="icon"></i></div>').join('') +
             '<div class="registry-thumb-cell add-person-cell" onclick="event.stopPropagation(); openPersonRegistryModal(\'add\');" title="Add person"><i data-lucide="plus" class="icon-lg"></i></div>';
         lucide.createIcons();
         console.error('Error loading registry card:', error);
@@ -130,10 +131,11 @@ async function loadPersonSelection() {
                          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();togglePersonSelection(${person.person_id}, this);}">
                         <img src="/api/operator/persons/${person.person_id}/thumbnail" class="thumb" alt=""
                              onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                        <span class="thumb-placeholder" style="display:none;">👤</span>
+                        <span class="thumb-placeholder" style="display:none;"><i data-lucide="user" class="icon icon-sm"></i></span>
                         <span class="select-name">${escapeHtml(person.name)}</span>
                     </div>
                 `).join('');
+                lucide.createIcons();
             } else {
                 container.innerHTML = '<p class="loading">No persons registered. Add persons first.</p>';
             }
@@ -334,33 +336,27 @@ async function loadJobConfig() {
  * Check if worker is running
  */
 async function checkWorkerStatus() {
-    const statusDiv = document.getElementById('worker-status');
+    const dot = document.getElementById('worker-dot-v2');
+    const text = document.getElementById('worker-text-v2');
+    const hint = document.getElementById('worker-hint-v2');
     
+    if (!dot || !text) return;
+
     try {
         const response = await fetch('/api/tracker/worker-status');
         const data = await response.json();
         
         if (data.online) {
+            dot.className = 'connection-dot online';
+            text.textContent = 'Worker Online';
             const statusText = formatWorkerStatus(data.status);
-            statusDiv.innerHTML = `
-                <div class="status-indicator online">
-                    <span class="dot"></span>
-                    <span class="text">Worker Online</span>
-                </div>
-                <p class="worker-hint">Status: ${statusText}</p>
-                <p class="worker-hint" style="font-size: 0.75rem; color: var(--text-muted);">PID: ${data.pid || 'unknown'}</p>
-            `;
+            if (hint) hint.innerHTML = `Running • ${statusText} • PID ${data.pid || '?'}`;
         } else {
-            statusDiv.innerHTML = `
-                <div class="status-indicator offline">
-                    <span class="dot"></span>
-                    <span class="text">Worker Offline</span>
-                </div>
-                <p class="worker-hint">Start the worker with: <code>python scripts/run_worker.py</code></p>
-            `;
+            dot.className = 'connection-dot offline';
+            text.textContent = 'Worker Offline';
+            if (hint) hint.innerHTML = 'Run <code>python scripts/run_worker.py</code>';
         }
     } catch (error) {
-        // Worker status endpoint might not be available
         console.error('Error checking worker status:', error);
     }
 }
@@ -413,24 +409,58 @@ function refreshJobAndProgress() {
  * Load and display job status
  */
 async function loadJobStatus() {
-    var display = document.getElementById('job-status-display');
-    var startBtn = document.getElementById('btn-start-job');
-    var stopBtn = document.getElementById('btn-stop-job');
-    var termBtn = document.getElementById('btn-terminate-job');
-    var hint = document.getElementById('job-terminate-hint');
-    if (!display) return;
+    const actionBtn = document.getElementById('btn-job-action');
+    const termBtn = document.getElementById('btn-job-terminate-mini');
+    const statusBadge = document.getElementById('job-status-badge');
+    const statusLabel = document.getElementById('status-label');
+    const statusMsg = document.getElementById('job-status-message-v2');
+
+    if (!actionBtn || !statusBadge) return;
+    
     try {
-        var r = await fetch('/api/operator/job-status');
-        var data = await r.json();
-        var statusColor = getStatusColor(data.status);
-        display.innerHTML = '<div class="status-text" style="color: ' + statusColor + ';">Job Status: <strong>' + (data.status || 'configured').toUpperCase() + '</strong></div><span class="status-message">' + escapeHtml(data.message || '') + '</span>';
-        startBtn.disabled = !data.can_start;
-        stopBtn.disabled = data.status !== 'running';
-        if (termBtn) termBtn.disabled = data.status !== 'running';
-        if (hint) hint.style.display = data.status === 'terminating' ? 'block' : 'none';
+        const r = await fetch('/api/operator/job-status');
+        const data = await r.json();
+        const status = data.status || 'configured';
+        
+        // Update Badge
+        statusBadge.className = 'status-badge-apple ' + status;
+        statusLabel.textContent = status.toUpperCase();
+        statusMsg.textContent = data.message || 'System ready';
+
+        // Update Action Button
+        if (status === 'running') {
+            actionBtn.innerHTML = '<i data-lucide="pause" class="icon icon-sm"></i><span>Stop Job</span>';
+            actionBtn.classList.remove('primary');
+            actionBtn.classList.add('danger-light'); // Subtle red for stop
+        } else if (status === 'terminating') {
+            actionBtn.innerHTML = '<i data-lucide="loader-2" class="icon icon-sm spin"></i><span>Stopping...</span>';
+            actionBtn.disabled = true;
+        } else {
+            actionBtn.innerHTML = '<i data-lucide="play" class="icon icon-sm"></i><span>Start Job</span>';
+            actionBtn.classList.add('primary');
+            actionBtn.classList.remove('danger-light');
+            actionBtn.disabled = !data.can_start;
+        }
+        
+        if (termBtn) termBtn.disabled = status !== 'running';
+        
+        lucide.createIcons();
     } catch (e) {
-        display.innerHTML = '<p class="loading">Error loading status</p>';
         console.error('Error loading job status:', e);
+    }
+}
+
+/**
+ * Main action handler for the unified button
+ */
+function handleJobActionMain() {
+    const btn = document.getElementById('btn-job-action');
+    const text = btn.textContent.toLowerCase();
+    
+    if (text.includes('stop')) {
+        stopJob();
+    } else if (text.includes('start')) {
+        startJob();
     }
 }
 
@@ -439,6 +469,8 @@ async function loadJobStatus() {
  */
 async function loadProgress() {
     var section = document.getElementById('progress-section');
+    var initializingEl = document.getElementById('progress-initializing');
+    var emptyEl = document.getElementById('progress-empty');
     var sourceLine = document.getElementById('progress-source-line');
     var currentImageEl = document.getElementById('progress-current-image');
     var speedEl = document.getElementById('progress-speed');
@@ -446,38 +478,48 @@ async function loadProgress() {
     var text = document.getElementById('progress-text');
     var time = document.getElementById('progress-time');
     if (!section || !bar || !text) return;
+    
     try {
         var r = await fetch('/api/tracker/progress');
         var d = await r.json();
         var total = d.total_images || 0;
         var done = d.processed_images || 0;
         var pct = d.completion_percent || 0;
+        
+        // Check if job is running but no progress yet
+        var jobStatusEl = document.getElementById('job-status-display');
+        var isRunning = jobStatusEl && jobStatusEl.innerHTML.includes('RUNNING');
+        
         if (total > 0) {
+            // Hide empty and initializing, show progress
+            if (emptyEl) emptyEl.style.display = 'none';
+            if (initializingEl) initializingEl.style.display = 'none';
             section.style.display = 'flex';
+            
             if (sourceLine) {
-                // User requested to hide paths during processing to clean up UI
                 sourceLine.style.display = 'none';
                 sourceLine.innerHTML = '';
             }
+            
+            // Always set current image text (placeholder if empty) to prevent layout shift
             if (currentImageEl) {
                 if (d.current_image && String(d.current_image).trim()) {
                     currentImageEl.textContent = 'Current: ' + escapeHtml(d.current_image);
-                    currentImageEl.style.display = 'block';
                 } else {
-                    currentImageEl.style.display = 'none';
-                    currentImageEl.textContent = '';
+                    currentImageEl.innerHTML = '&nbsp;'; // Reserve space
                 }
             }
+            
+            // Always set speed text (placeholder if no data) to prevent layout shift
             if (speedEl) {
                 if (d.images_per_second != null && d.images_per_second > 0) {
                     speedEl.textContent = 'Speed: ' + Number(d.images_per_second).toFixed(2) + ' img/s';
-                    speedEl.style.display = 'block';
                     updateSpeedGraph(d.images_per_second);
                 } else {
-                    speedEl.style.display = 'none';
-                    speedEl.textContent = '';
+                    speedEl.innerHTML = '&nbsp;'; // Reserve space
                 }
             }
+            
             bar.style.width = pct + '%';
             text.textContent = done + ' / ' + total + ' (' + pct.toFixed(1) + '%)';
             if (d.current_batch_state || d.current_image_range) {
@@ -487,11 +529,20 @@ async function loadProgress() {
             if (d.elapsed_formatted) t += 'Elapsed: ' + d.elapsed_formatted;
             if (d.estimated_remaining_formatted) t += (t ? ' | ' : '') + 'ETC: ~' + d.estimated_remaining_formatted;
             time.textContent = t || '—';
-        } else {
+        } else if (isRunning) {
+            // Job is running but no images discovered yet - show initializing
+            if (emptyEl) emptyEl.style.display = 'none';
             section.style.display = 'none';
+            if (initializingEl) initializingEl.style.display = 'flex';
+        } else {
+            // No job running and no progress
+            section.style.display = 'none';
+            if (initializingEl) initializingEl.style.display = 'none';
+            if (emptyEl) emptyEl.style.display = 'block';
         }
     } catch (e) {
         section.style.display = 'none';
+        if (initializingEl) initializingEl.style.display = 'none';
     }
 }
 
@@ -514,9 +565,12 @@ function getStatusColor(status) {
  * Start the processing job
  */
 async function startJob() {
-    const startBtn = document.getElementById('btn-start-job');
-    startBtn.disabled = true;
-    startBtn.textContent = 'Starting...';
+    const actionBtn = document.getElementById('btn-job-action');
+    if (actionBtn) {
+        actionBtn.disabled = true;
+        actionBtn.innerHTML = '<i data-lucide="loader-2" class="icon icon-sm spin"></i><span>Starting...</span>';
+        lucide.createIcons();
+    }
     
     try {
         const response = await fetch('/api/operator/start-job', {
@@ -533,7 +587,6 @@ async function startJob() {
         alert('Network error. Please try again.');
         console.error('Error starting job:', error);
     } finally {
-        startBtn.textContent = '▶ Start Job';
         loadJobStatus();
     }
 }
@@ -543,14 +596,19 @@ async function startJob() {
  */
 async function stopJob() {
     if (!confirm('Stop the job? The current batch will complete (including writes to output), then the job will stop.')) return;
-    var stopBtn = document.getElementById('btn-stop-job');
-    stopBtn.disabled = true;
-    stopBtn.textContent = 'Stopping...';
+    const actionBtn = document.getElementById('btn-job-action');
+    if (actionBtn) {
+        actionBtn.disabled = true;
+        actionBtn.innerHTML = '<i data-lucide="loader-2" class="icon icon-sm spin"></i><span>Stopping...</span>';
+        lucide.createIcons();
+    }
     try {
         var r = await fetch('/api/operator/stop-job', { method: 'POST' });
         if (r.ok) loadJobStatus(); else { var e = await r.json(); alert(e.detail || 'Failed to stop job'); }
     } catch (err) { alert('Network error.'); console.error(err); }
-    finally { stopBtn.textContent = '⏹ Stop Job'; loadJobStatus(); }
+    finally { 
+        loadJobStatus(); 
+    }
 }
 
 /**
@@ -558,14 +616,17 @@ async function stopJob() {
  */
 async function terminateJob() {
     if (!confirm('Terminate the job?\n\nNo new photos will be matched or analysed. Only images currently being written to their output folders will be finished, then the job stops.')) return;
-    var termBtn = document.getElementById('btn-terminate-job');
-    termBtn.disabled = true;
-    termBtn.textContent = 'Terminating...';
+    const termBtn = document.getElementById('btn-job-terminate-mini');
+    if (termBtn) {
+        termBtn.disabled = true;
+    }
     try {
         var r = await fetch('/api/operator/terminate-job', { method: 'POST' });
         if (r.ok) loadJobStatus(); else { var e = await r.json(); alert(e.detail || 'Failed to terminate'); }
     } catch (err) { alert('Network error.'); console.error(err); }
-    finally { termBtn.textContent = '⏹ Terminate'; loadJobStatus(); }
+    finally { 
+        loadJobStatus(); 
+    }
 }
 
 /**
@@ -635,21 +696,29 @@ function updateSpeedGraph(speed) {
     const width = 300; // SVG viewBox width
     const height = 60; // SVG viewBox height
     
-    // Dynamic max speed for Y-axis scaling (min 5 to prevent flat lines)
-    const maxSpeed = Math.max(Math.max(...speedHistory), 5) * 1.2;
+    // Use adaptive scaling - ensures variations are visible even at low speeds
+    const actualMax = Math.max(...speedHistory);
+    const actualMin = Math.min(...speedHistory);
+    const range = actualMax - actualMin;
+    
+    // Dynamic max: at least 0.2 to avoid jitter, otherwise 20% above the max value
+    const scaleMax = Math.max(actualMax * 1.2, 0.2);
     
     // Generate coordinate points
     const points = speedHistory.map((val, idx) => {
         // Map index to 0..width based on MAX_HISTORY capacity
-        // This makes the graph grow from left to right initially
         const x = (idx / (MAX_HISTORY - 1)) * width; 
         
-        // Map speed to height..0 (inverted Y)
-        const y = height - ((val / maxSpeed) * height);
-        return [x, y];
+        // Normalize value based on dynamic scale
+        const normalizedVal = val / scaleMax;
+        
+        // Map to height..0 (inverted Y), with small padding
+        const padding = 2; // Reduced padding for more vertical space
+        const y = height - padding - (normalizedVal * (height - 2 * padding));
+        return [x, Math.max(padding, Math.min(height - padding, y))];
     });
     
-    // Create Line Path (M x0 y0 L x1 y1 ...)
+    // Create smooth curve using cardinal spline approximation
     const lineD = "M " + points.map(p => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(" L ");
     
     // Create Area Path (Line + fill to bottom)
@@ -861,8 +930,9 @@ function openPersonDetailsModal(cardEl) {
     modal.dataset.personId = id;
     modal.dataset.personName = name;
     document.getElementById('person-details-name').textContent = name;
-    document.getElementById('person-details-folder').textContent = folder ? '📁 ' + folder : '—';
-    document.getElementById('person-details-embeddings').textContent = count + ' reference(s)';
+    document.getElementById('person-details-folder').innerHTML = '<i data-lucide="folder" class="icon icon-sm"></i> ' + (folder || '—');
+    document.getElementById('person-details-embeddings').innerHTML = '<i data-lucide="image" class="icon icon-sm"></i> ' + count + ' reference(s)';
+    lucide.createIcons();
     const refInput = document.getElementById('person-details-ref-input');
     if (refInput) refInput.value = '';
     Animations.modalOpen(modal);
@@ -887,7 +957,10 @@ async function onPersonDetailsAddRef(inputEl) {
         const d = await r.json();
         const p = (d.persons || []).find(x => x.person_id === pid);
         const el = document.getElementById('person-details-embeddings');
-        if (p && el) el.textContent = p.embedding_count + ' reference(s)';
+        if (p && el) {
+            el.innerHTML = '<i data-lucide="image" class="icon icon-sm"></i> ' + p.embedding_count + ' reference(s)';
+            lucide.createIcons();
+        }
     } catch (e) { /* ignore */ }
 }
 
@@ -913,6 +986,13 @@ function switchPersonRegistryTab(tab) {
         pane.classList.toggle('active', isActive);
         pane.style.display = isActive ? 'block' : 'none';
     });
+    
+    // Show/hide specific footer buttons based on tab
+    const submitBtn = document.getElementById('btn-submit-seed');
+    if (submitBtn) {
+        submitBtn.style.display = (tab === 'add') ? 'inline-flex' : 'none';
+    }
+
     if (tab === 'list') loadPersons();
 }
 
@@ -990,10 +1070,11 @@ async function loadFolders(path) {
             listContainer.innerHTML = data.folders.map(folder => `
                 <div class="folder-item ${folder.is_drive ? 'drive' : ''}" 
                      onclick="navigateToFolder('${escapeHtml(folder.path.replace(/\\/g, '\\\\'))}')">
-                    <span class="folder-icon">${folder.is_drive ? '💾' : '📁'}</span>
+                    <span class="folder-icon"><i data-lucide="${folder.is_drive ? 'hard-drive' : 'folder'}" class="icon icon-sm"></i></span>
                     <span class="folder-name">${escapeHtml(folder.name)}</span>
                 </div>
             `).join('');
+            lucide.createIcons();
         }
         
     } catch (error) {
