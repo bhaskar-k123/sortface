@@ -102,12 +102,21 @@ class WorkerRunner:
                         selected_image_paths = job_config.get("selected_image_paths")
                         if selected_image_paths:
                             print(f"Processing only {len(selected_image_paths)} selected image(s)")
+                        
+                        # Get group mode settings
+                        group_mode = job_config.get("group_mode", False)
+                        group_folder_name = job_config.get("group_folder_name")
+                        if group_mode:
+                            print(f"GROUP MODE: Only photos with ALL {len(selected_person_ids)} selected people → folder '{group_folder_name}'")
+                        
                         self.batch_engine = BatchEngine(
                             source_root=Path(job_config["source_root"]),
                             output_root=Path(job_config["output_root"]),
                             state_writer=self.state_writer,
                             selected_person_ids=selected_person_ids,
                             selected_image_paths=selected_image_paths,
+                            group_mode=group_mode,
+                            group_folder_name=group_folder_name,
                         )
                         # Discover and create batches
                         result = await self.batch_engine.discover_images()

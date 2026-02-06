@@ -27,14 +27,14 @@ async def get_job_config() -> dict:
     db = await get_db()
     
     # Ensure optional columns exist
-    for col in ("selected_person_ids", "selected_image_paths"):
+    for col in ("selected_person_ids", "selected_image_paths", "group_mode", "group_folder_name"):
         try:
             await db.execute(f"ALTER TABLE job_config ADD COLUMN {col} TEXT")
             await db.commit()
         except Exception:
             pass
     cursor = await db.execute(
-        "SELECT source_root, output_root, selected_person_ids, selected_image_paths FROM job_config WHERE config_id = 1"
+        "SELECT source_root, output_root, selected_person_ids, selected_image_paths, group_mode, group_folder_name FROM job_config WHERE config_id = 1"
     )
     raw = await cursor.fetchone()
     row = dict(raw) if raw else {}
@@ -55,11 +55,16 @@ async def get_job_config() -> dict:
         except json.JSONDecodeError:
             selected_paths = []
     
+    # Parse group_mode (stored as "1" or "0" text)
+    group_mode = row.get("group_mode") == "1"
+    
     return {
         "source_root": row.get("source_root"),
         "output_root": row.get("output_root"),
         "selected_person_ids": selected_ids,
-        "selected_image_paths": selected_paths if selected_paths else None
+        "selected_image_paths": selected_paths if selected_paths else None,
+        "group_mode": group_mode,
+        "group_folder_name": row.get("group_folder_name")
     }
 
 
@@ -68,11 +73,13 @@ async def save_job_config(
     output_root: str,
     selected_person_ids: list = None,
     selected_image_paths: list = None,
+    group_mode: bool = False,
+    group_folder_name: str = None,
 ) -> None:
     """Save job configuration."""
     db = await get_db()
     
-    for col in ("selected_person_ids", "selected_image_paths"):
+    for col in ("selected_person_ids", "selected_image_paths", "group_mode", "group_folder_name"):
         try:
             await db.execute(f"ALTER TABLE job_config ADD COLUMN {col} TEXT")
             await db.commit()
@@ -81,12 +88,14 @@ async def save_job_config(
     
     selected_json = json.dumps(selected_person_ids) if selected_person_ids else None
     selected_paths_json = json.dumps(selected_image_paths) if selected_image_paths else None
+    group_mode_str = "1" if group_mode else "0"
     
     await db.execute(
         """UPDATE job_config 
-           SET source_root = ?, output_root = ?, selected_person_ids = ?, selected_image_paths = ?, updated_at = datetime('now')
+           SET source_root = ?, output_root = ?, selected_person_ids = ?, selected_image_paths = ?, 
+               group_mode = ?, group_folder_name = ?, updated_at = datetime('now')
            WHERE config_id = 1""",
-        (source_root, output_root, selected_json, selected_paths_json)
+        (source_root, output_root, selected_json, selected_paths_json, group_mode_str, group_folder_name)
     )
     await db.commit()
 

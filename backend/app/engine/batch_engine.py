@@ -60,12 +60,16 @@ class BatchEngine:
         state_writer: Optional[StateWriter] = None,
         selected_person_ids: Optional[list[int]] = None,
         selected_image_paths: Optional[list[str]] = None,
+        group_mode: bool = False,
+        group_folder_name: Optional[str] = None,
     ):
         self.source_root = source_root
         self.output_root = output_root
         self.state_writer = state_writer or StateWriter()
         self.selected_person_ids = selected_person_ids
         self.selected_image_paths = selected_image_paths
+        self.group_mode = group_mode
+        self.group_folder_name = group_folder_name
         
         # Initialize engines
         self.face_engine = FaceEngine()
@@ -344,6 +348,20 @@ class BatchEngine:
             # Deduplicate matched IDs
             matched_ids = list(set(matched_ids))
             
+            # GROUP MODE: Check if ALL selected people are present
+            # If not, clear matches so image won't be routed
+            group_match = False
+            if self.group_mode and self.selected_person_ids:
+                required_set = set(self.selected_person_ids)
+                if required_set.issubset(set(matched_ids)):
+                    group_match = True
+                    print(f"      → GROUP MATCH: All {len(required_set)} required people found! ✓")
+                else:
+                    # Not all required people present - skip routing in group mode
+                    found_count = len(required_set.intersection(set(matched_ids)))
+                    print(f"      → Group: {found_count}/{len(required_set)} required people (skipping)")
+                    matched_ids = []  # Clear so image won't be routed
+            
             # Compute hash if not already done
             if not image.get("sha256"):
                 from ..db.jobs import update_image_hash
@@ -361,13 +379,14 @@ class BatchEngine:
                 matched_person_ids=matched_ids
             )
             
-            # Summary for this image
-            if len(faces) == 0:
-                print(f"      → No faces detected")
-            elif len(matched_ids) == 0:
-                print(f"      → {len(faces)} face(s), no matches")
-            else:
-                print(f"      → {len(faces)} face(s), {len(matched_ids)} matched ✓")
+            # Summary for this image (non-group mode)
+            if not self.group_mode:
+                if len(faces) == 0:
+                    print(f"      → No faces detected")
+                elif len(matched_ids) == 0:
+                    print(f"      → {len(faces)} face(s), no matches")
+                else:
+                    print(f"      → {len(faces)} face(s), {len(matched_ids)} matched ✓")
             
             return {
                 "image_id": image["image_id"],
@@ -410,15 +429,26 @@ class BatchEngine:
             else:
                 self.compression_engine.compress(source_path, staged_path)
             
-            # Fan-out route to all matched persons
-            routed = await self.routing_engine.route_image(
-                batch_id=batch_id,
-                image_id=img_result["image_id"],
-                staged_path=staged_path,
-                original_stem=original_stem,
-                file_hash=file_hash,
-                matched_person_ids=img_result["matched_person_ids"]
-            )
+            # GROUP MODE: Route to group folder instead of individual person folders
+            if self.group_mode and self.group_folder_name:
+                routed = await self.routing_engine.route_image_to_group(
+                    batch_id=batch_id,
+                    image_id=img_result["image_id"],
+                    staged_path=staged_path,
+                    original_stem=original_stem,
+                    file_hash=file_hash,
+                    group_folder_name=self.group_folder_name
+                )
+            else:
+                # Normal mode: Fan-out route to all matched persons
+                routed = await self.routing_engine.route_image(
+                    batch_id=batch_id,
+                    image_id=img_result["image_id"],
+                    staged_path=staged_path,
+                    original_stem=original_stem,
+                    file_hash=file_hash,
+                    matched_person_ids=img_result["matched_person_ids"]
+                )
             
             return {
                 "image_id": img_result["image_id"],

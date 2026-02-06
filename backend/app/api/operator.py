@@ -244,6 +244,8 @@ class JobConfigRequest(BaseModel):
     output_root: str
     selected_person_ids: Optional[list[int]] = None  # None means all persons
     selected_image_paths: Optional[list[str]] = None  # None or empty means all images in source
+    group_mode: bool = False  # NEW: If True, only photos with ALL selected people are matched
+    group_folder_name: Optional[str] = None  # NEW: Folder name for group mode output
 
 
 class JobConfigResponse(BaseModel):
@@ -252,6 +254,8 @@ class JobConfigResponse(BaseModel):
     output_root: Optional[str] = None
     selected_person_ids: Optional[list[int]] = None  # None or empty means all persons
     selected_image_paths: Optional[list[str]] = None  # None or empty means all images in source
+    group_mode: bool = False
+    group_folder_name: Optional[str] = None
 
 
 class PersonResponse(BaseModel):
@@ -276,6 +280,8 @@ async def get_job_configuration():
         output_root=config.get("output_root"),
         selected_person_ids=config.get("selected_person_ids"),
         selected_image_paths=config.get("selected_image_paths"),
+        group_mode=config.get("group_mode", False),
+        group_folder_name=config.get("group_folder_name"),
     )
 
 
@@ -333,12 +339,27 @@ async def set_job_configuration(request: JobConfigRequest):
             detail=f"Cannot create output directory: {e}"
         )
     
+    # Validate group mode: requires folder name and at least 2 people
+    if request.group_mode:
+        if not request.group_folder_name or not request.group_folder_name.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Group mode requires a folder name"
+            )
+        if not request.selected_person_ids or len(request.selected_person_ids) < 2:
+            raise HTTPException(
+                status_code=400,
+                detail="Group mode requires at least 2 selected persons"
+            )
+    
     # Save configuration
     await save_job_config(
         request.source_root,
         request.output_root,
         request.selected_person_ids,
         request.selected_image_paths,
+        request.group_mode,
+        request.group_folder_name.strip() if request.group_folder_name else None,
     )
     
     return {"status": "ok", "message": "Configuration saved"}
