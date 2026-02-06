@@ -30,30 +30,37 @@
 
 :root {
     --bg-primary: #ffffff;
-    --bg-secondary: #fbfbfd; /* Apple Light Page Background */
-    --bg-tertiary: #f2f2f7; /* System Gray 6 */
-    --border-color: rgba(0, 0, 0, 0.08); /* More subtle borders */
+    --bg-secondary: #f5f5f7; /* Apple Warm Light Grey */
+    --bg-tertiary: #e9e9eb; /* System Gray 5 */
+    --border-color: rgba(0, 0, 0, 0.06); /* Sophisticated, subtle border */
     --text-primary: #1d1d1f; /* Apple primary text */
-    --text-secondary: #6e6e73; /* Apple secondary text */
-    --text-muted: #86868b; /* Apple tertiary text */
-    --accent-cyan: #007aff; /* SF Blue */
+    --text-secondary: #86868b; /* Apple secondary text */
+    --text-muted: #98989d; /* Apple tertiary text */
+    
+    /* Functional Colors */
+    --accent-cyan: #007aff; /* System Blue */
     --accent-cyan-dim: #0056b3;
     --accent-green: #34c759; /* System Green */
     --accent-green-dim: #248a3d;
     --accent-orange: #ff9500; /* System Orange */
-    --accent-yellow: #ffcc00; /* System Yellow */
     --accent-red: #ff3b30; /* System Red */
-    --accent-blue: #007aff;
+    
+    /* Typography */
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
     --font-mono: 'SF Mono', 'JetBrains Mono', 'Fira Code', monospace;
-    --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
-    --radius-sm: 10px;
-    --radius-md: 14px;
-    --radius-lg: 24px; /* Smooth card corners */
-    --radius-xl: 30px;
-    --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.04);
-    --shadow-large: 0 10px 40px rgba(0, 0, 0, 0.08);
-
-    /* Animation Variables */
+    
+    /* Spacing & Layout */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 20px; /* Sophisticated large radius */
+    --radius-xl: 999px; /* Pill radius */
+    
+    /* Effects */
+    --shadow-soft: 0 2px 12px rgba(0, 0, 0, 0.03);
+    --shadow-large: 0 12px 32px rgba(0, 0, 0, 0.06);
+    --backdrop-blur: blur(20px);
+    
+    /* Animations */
     --ease-apple: cubic-bezier(0.25, 1, 0.5, 1);
     --duration-fast: 0.2s;
     --duration-normal: 0.3s;
@@ -78,9 +85,9 @@
 [data-theme="dark"] .btn-small, 
 [data-theme="dark"] .person-selection-compact .btn,
 [data-theme="dark"] .job-config-value-row .btn {
-    background-color: #ffffff;
-    color: #000000;
-    border: none;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 [data-theme="dark"] .btn-small .icon,
@@ -112,10 +119,12 @@ body {
     font-family: var(--font-sans);
     background: var(--bg-secondary);
     color: var(--text-primary);
-    line-height: 1.47059; /* Apple standard */
-    letter-spacing: -0.022em; /* SF Pro Display style */
+    line-height: 1.5;
+    letter-spacing: -0.022em; /* Tighter crisp tracking */
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    padding-bottom: 2rem;
 }
 
 .container {
@@ -134,9 +143,7 @@ body {
     padding: 1rem 0;
 }
 
-.operator-header {
-    /* Flex alignment handled by .header */
-}
+
 
 .header-content {
     display: flex;
@@ -229,37 +236,22 @@ input:checked + .slider:before {
 }
 
 .nav-card {
-    background: var(--bg-secondary);
+    background: var(--bg-primary); /* Pure white cards */
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
     padding: 2.5rem;
     text-decoration: none;
     color: var(--text-primary);
-    transition: all 0.3s ease;
+    transition: all 0.3s var(--ease-apple);
     position: relative;
     overflow: hidden;
-}
-
-.nav-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
-    transform: scaleX(0);
-    transition: transform 0.3s ease;
+    box-shadow: var(--shadow-soft);
 }
 
 .nav-card:hover {
-    border-color: var(--accent-cyan-dim);
+    border-color: rgba(0, 122, 255, 0.3);
     transform: translateY(-4px);
-    box-shadow: 0 12px 40px rgba(57, 212, 212, 0.15);
-}
-
-.nav-card:hover::before {
-    transform: scaleX(1);
+    box-shadow: var(--shadow-large);
 }
 
 .card-icon {
@@ -285,12 +277,12 @@ input:checked + .slider:before {
     margin-bottom: 1.5rem;
     overflow: hidden;
     box-shadow: var(--shadow-soft);
-    transition: box-shadow var(--duration-normal) var(--ease-apple), transform var(--duration-normal) var(--ease-apple);
+    transition: box-shadow 0.3s var(--ease-apple), transform 0.3s var(--ease-apple);
 }
 
 .panel:hover {
     box-shadow: var(--shadow-large);
-    transform: translateY(-2px);
+    border-color: rgba(0, 0, 0, 0.1);
 }
 
 .panel h2 {
@@ -337,19 +329,19 @@ select,
 textarea {
     width: 100%;
     padding: 0.75rem 1rem;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    border-radius: 12px; /* Apple curve */
+    background: rgba(0, 0, 0, 0.02); /* Very subtle background */
+    border: 1px solid transparent; /* No border initially for cleaner look */
+    border-radius: var(--radius-md); 
     color: var(--text-primary);
     font-size: 0.95rem;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.2s var(--ease-apple);
     outline: none;
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 input[type="text"]:focus {
+    background: var(--bg-primary);
     border-color: var(--accent-cyan);
-    box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1), inset 0 1px 2px rgba(0, 0, 0, 0.02);
+    box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.15);
 }
 
 input[type="file"] {
@@ -378,68 +370,65 @@ input[type="file"]::file-selector-button:hover {
 }
 
 /* Buttons */
+/* Buttons */
 .btn {
-    padding: 0.7rem 1.5rem;
-    border-radius: var(--radius-xl); /* More pill-shaped for Apple feel */
-    font-size: 0.95rem;
-    font-weight: 500;
+    padding: 0.6rem 1.25rem;
+    border-radius: var(--radius-xl); 
+    font-size: 0.9rem;
+    font-weight: 600;
     font-family: var(--font-sans);
     cursor: pointer;
-    border: none;
+    border: 1px solid transparent;
     background: var(--bg-tertiary);
-    color: var(--accent-blue);
-    transition: all var(--duration-fast) var(--ease-apple);
+    color: var(--text-primary); /* Default text color */
+    transition: all 0.2s var(--ease-apple);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
     -webkit-font-smoothing: antialiased;
-    transform: scale(1);
 }
 
 .btn:hover {
-    background: #e5e5ea;
+    background: #e0e0e0;
     transform: translateY(-1px);
 }
 
 .btn:active {
-    transform: scale(0.96);
+    transform: scale(0.98);
 }
 
 .btn-small {
-    padding: 0.45rem 1.25rem;
-    font-size: 0.9rem;
-    border-radius: var(--radius-md);
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    padding: 0.35rem 1rem;
+    font-size: 0.85rem;
+    border-radius: var(--radius-xl); /* Pill shape for small buttons too */
+    background: rgba(0, 0, 0, 0.04);
+    border: 1px solid transparent;
+    color: var(--text-primary);
+    font-weight: 500;
 }
 
 .btn-small:hover {
-    background: var(--bg-tertiary);
-}
-
-.btn:active {
-    transform: scale(0.97);
+    background: rgba(0, 0, 0, 0.08);
 }
 
 .btn-primary {
     background: var(--accent-cyan);
     color: #ffffff;
-}
-
-.btn-primary .icon {
-    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 122, 255, 0.25);
 }
 
 .btn-primary:hover {
     background: var(--accent-cyan-dim);
+    box-shadow: 0 4px 12px rgba(0, 122, 255, 0.35);
 }
 
 .btn-primary:disabled {
-    opacity: 0.3;
+    opacity: 0.5;
     cursor: not-allowed;
     background: var(--accent-cyan);
+    box-shadow: none;
+    transform: none;
 }
 
 /* Status Messages */
@@ -945,23 +934,22 @@ input[type="file"]::file-selector-button:hover {
     border-color: var(--border-color);
 }
 
-/* Modal */
+/* Modals */
 .modal {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.3);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    background: rgba(0, 0, 0, 0.2); /* Lighter backdrop */
+    backdrop-filter: var(--backdrop-blur); /* Glass effect */
     display: flex;
-    align-items: center;
     justify-content: center;
+    align-items: center;
     z-index: 1000;
     opacity: 0;
     visibility: hidden;
-    transition: visibility 0.3s, opacity 0.3s;
+    transition: opacity 0.3s var(--ease-apple), visibility 0.3s var(--ease-apple);
 }
 
 .modal.active {
@@ -971,31 +959,21 @@ input[type="file"]::file-selector-button:hover {
 
 .modal-content {
     background: var(--bg-primary);
-    border-radius: var(--radius-xl); /* Increased for Apple look */
+    padding: 2rem;
+    border-radius: var(--radius-lg);
     width: 90%;
-    max-width: 600px;
+    max-width: 550px;
     max-height: 85vh;
-    overflow: hidden;
+    overflow-y: auto;
     position: relative;
-    box-shadow: var(--shadow-large);
-    display: flex;
-    flex-direction: column;
-    animation: modal-enter 0.4s var(--ease-apple);
-}
-
-@keyframes modal-enter {
-    from {
-        opacity: 0;
-        transform: scale(0.96) translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: scale(1) translateY(0);
-    }
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15); /* Deep shadow for lift */
+    transform: scale(0.95) translateY(10px);
+    transition: transform 0.3s var(--ease-apple);
+    border: 1px solid var(--border-color);
 }
 
 .modal.active .modal-content {
-    transform: scale(1);
+    transform: scale(1) translateY(0);
 }
 
 .modal-content.modal-large {
