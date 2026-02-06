@@ -154,11 +154,12 @@ function renderRegistryGrid(persons) {
  * Filter the registry grid based on search input
  */
 function filterRegistry() {
-    const query = document.getElementById('registry-search-input').value.toLowerCase();
-    const filtered = allPersons.filter(p => 
-        p.name.toLowerCase().includes(query) || 
-        p.person_id.toLowerCase().includes(query)
-    );
+    const query = (document.getElementById('registry-search-input').value || '').toLowerCase();
+    const filtered = allPersons.filter(p => {
+        const nameMatch = p.name && p.name.toLowerCase().includes(query);
+        const idMatch = String(p.person_id).toLowerCase().includes(query);
+        return nameMatch || idMatch;
+    });
     renderRegistryGrid(filtered);
 }
 
