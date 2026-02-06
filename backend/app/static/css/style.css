@@ -116,15 +116,16 @@
 }
 
 body {
-    font-family: var(--font-sans);
+    font-family: 'Inter', var(--font-sans);
+    font-size: 18px;
+    font-weight: 500;
     background: var(--bg-secondary);
     color: var(--text-primary);
-    line-height: 1.5;
-    letter-spacing: -0.022em; /* Tighter crisp tracking */
+    line-height: 1.6;
+    letter-spacing: -0.022em;
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    padding-bottom: 2rem;
 }
 
 .container {
@@ -268,27 +269,31 @@ input:checked + .slider:before {
     color: var(--text-secondary);
 }
 
-/* Panels */
+/* Panels - Premium Bento Style */
 .panel {
     background: var(--bg-primary);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
-    padding: 1.5rem;
+    padding: 2rem;
     margin-bottom: 1.5rem;
     overflow: hidden;
-    box-shadow: var(--shadow-soft);
+    box-shadow: 
+        0 1px 3px rgba(0, 0, 0, 0.04),
+        0 4px 12px rgba(0, 0, 0, 0.03);
     transition: box-shadow 0.3s var(--ease-apple), transform 0.3s var(--ease-apple);
 }
 
 .panel:hover {
-    box-shadow: var(--shadow-large);
+    box-shadow: 
+        0 4px 12px rgba(0, 0, 0, 0.06),
+        0 8px 24px rgba(0, 0, 0, 0.04);
     border-color: rgba(0, 0, 0, 0.1);
 }
 
 .panel h2 {
-    font-size: 1.1rem;
+    font-size: 1.25rem;
     font-weight: 600;
-    margin-bottom: 1rem;
+    margin-bottom: 1.25rem;
     padding-bottom: 0.75rem;
     border-bottom: 1px solid var(--border-color);
     color: var(--text-primary);
@@ -413,14 +418,18 @@ input[type="file"]::file-selector-button:hover {
 }
 
 .btn-primary {
-    background: var(--accent-cyan);
+    background: linear-gradient(135deg, var(--accent-cyan), #0056b3);
     color: #ffffff;
-    box-shadow: 0 2px 8px rgba(0, 122, 255, 0.25);
+    box-shadow: 0 4px 14px rgba(0, 122, 255, 0.3);
+    height: 48px;
+    padding: 0 2rem;
+    font-size: 1rem;
 }
 
 .btn-primary:hover {
-    background: var(--accent-cyan-dim);
-    box-shadow: 0 4px 12px rgba(0, 122, 255, 0.35);
+    background: linear-gradient(135deg, #0066cc, #004499);
+    box-shadow: 0 6px 20px rgba(0, 122, 255, 0.4);
+    transform: translateY(-2px);
 }
 
 .btn-primary:disabled {
@@ -1753,91 +1762,123 @@ input[type="file"]::file-selector-button:hover {
     font-size: 1.05rem;
 }
 
-/* Operator 2x2 Layout */
+/* Operator 5-Card Bento Layout (100vh) */
 .operator-page {
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.operator-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 1rem 2rem 2rem;
+    max-width: 100%;
     overflow: hidden;
 }
-.operator-container {
-    padding: 1rem 2rem;
-    max-width: 1400px;
-}
+
 .operator-header {
+    flex-shrink: 0;
     margin-bottom: 1rem;
 }
+
 .operator-header .subtitle {
     display: none;
 }
+
 .operator-header h1 {
     font-size: 1.5rem;
+    font-weight: 600;
     margin-bottom: 0;
 }
+
 .operator-grid {
+    flex: 1;
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto auto 1fr;
+    grid-template-columns: 1fr 1fr 1.5fr;
+    grid-template-rows: 1fr 1fr;
     grid-template-areas:
-        "config progress"
-        "control progress"
-        "status registry";
+        "config  control  progress"
+        "status  status   registry";
     gap: 1.5rem;
-    min-height: calc(100vh - 120px);
-    height: auto;
-    overflow: visible;
-}
-
-#job-config-card { grid-area: config; margin-bottom: 0; }
-#job-control-panel { grid-area: control; margin-bottom: 0; }
-#job-status-panel { grid-area: status; margin-bottom: 0; }
-#job-progress-panel { grid-area: progress; margin-bottom: 0; }
-#person-registry-card { grid-area: registry; margin-bottom: 0; }
-
-.operator-cell .panel {
-    margin-bottom: 0;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
     min-height: 0;
-}
-.operator-cell .panel {
-    margin-bottom: 0;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-}
-#person-registry-card {
-    display: flex;
-    flex-direction: column;
-    min-height: 350px;
-    padding: 1.5rem;
+    overflow: hidden;
 }
 
-#person-registry-card .registry-card-header {
+/* Card Grid Assignments */
+#job-config-card { 
+    grid-area: config; 
     margin-bottom: 0;
-}
-
-#job-status-panel {
     display: flex;
     flex-direction: column;
-    min-height: 300px;
-    padding: 1.5rem;
+}
+
+#job-control-panel { 
+    grid-area: control; 
+    margin-bottom: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+#job-status-panel { 
+    grid-area: status; 
+    margin-bottom: 0;
+    display: flex;
+    flex-direction: column;
     justify-content: center;
+    min-height: 0;
 }
 
-#job-status-panel h2 {
-    margin-bottom: 1rem;
+#job-progress-panel { 
+    grid-area: progress; 
+    margin-bottom: 0;
+    display: flex;
+    flex-direction: column;
 }
+
+#person-registry-card { 
+    grid-area: registry; 
+    margin-bottom: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Panel Flex Fill */
+.operator-grid .panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Registry Thumbnail Grid Scrollable */
+#person-registry-card .registry-thumb-grid {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+/* Progress Section Fill */
 #job-progress-panel #progress-section {
-    margin-top: 0;
-    padding-top: 1rem;
-    border-top: none;
-    height: 100%;
+    flex: 1;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
-    gap: 1.25rem;
-    flex: 1;
+    gap: 0.75rem;
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
     min-height: 0;
+    overflow: hidden;
+}
+
+#job-progress-panel {
+    overflow: hidden;
 }
 /* Legacy worker status removed */
 
@@ -1846,6 +1887,54 @@ input[type="file"]::file-selector-button:hover {
     font-size: 1.05rem;
     margin-bottom: 0.5rem;
 }
+
+/* Job Config - Large Fill Layout (Option A) */
+.job-config-fill {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-evenly;
+    gap: 1.5rem;
+}
+
+.job-config-block-large {
+    padding: 1.5rem;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+}
+
+.job-config-icon-label {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.config-icon {
+    width: 28px;
+    height: 28px;
+    stroke: var(--accent-cyan);
+}
+
+.job-config-label-large {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.job-config-path-large {
+    font-family: var(--font-mono);
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    flex: 1 1 0;
+}
+
 .job-config-block {
     margin-bottom: 0.6rem;
 }
@@ -1887,6 +1976,94 @@ input[type="file"]::file-selector-button:hover {
 #person-selection-summary {
     color: var(--text-secondary);
     font-size: 0.95rem;
+}
+
+/* Search For - Large Fill Layout */
+.search-for-fill {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.search-for-block {
+    width: 100%;
+    padding: 2rem;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    text-align: center;
+}
+
+.search-for-icon-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.search-for-label-large {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.search-for-value-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+}
+
+.search-for-summary-large {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--accent-cyan);
+}
+
+/* Selected People Thumbnails Row */
+.selected-thumbnails-row {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    margin: 1.25rem 0;
+    min-height: 56px;
+    align-items: center;
+}
+
+.selected-thumbnails-row:empty {
+    display: none;
+}
+
+.thumb-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--bg-primary);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s var(--ease-apple);
+}
+
+.thumb-avatar:hover {
+    transform: scale(1.1);
+    z-index: 1;
+}
+
+.thumb-overflow {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--bg-tertiary);
+    border: 2px solid var(--bg-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-secondary);
 }
 
 /* Person Registry card */
@@ -2031,5 +2208,71 @@ input[type="file"]::file-selector-button:hover {
         width: 95%;
         max-height: 90vh;
     }
+}
+
+/* ============================================================================
+   Progress Stats Dashboard Grid
+   ============================================================================ */
+
+.progress-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.stat-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.2;
+    margin-bottom: 0.125rem;
+}
+
+.stat-value.stat-speed {
+    color: var(--accent-green);
+}
+
+.stat-value.stat-percent {
+    color: var(--accent-cyan);
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Progress Bar Enhanced */
+.progress-bar-wrap {
+    height: 12px;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-cyan), #0056b3);
+    border-radius: 6px;
+    transition: width 0.3s var(--ease-apple);
+}
+
+.progress-text {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-align: center;
 }
 
