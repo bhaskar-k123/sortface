@@ -6,6 +6,7 @@
 // Global state for selected persons
 let selectedPersonIds = new Set();
 let groupModeEnabled = false;  // NEW: Group mode state
+let lastJobStatus = ''; // Track status for animations
 
 const THEME_KEY = 'face_segregation_theme';
 
@@ -530,11 +531,48 @@ async function loadJobStatus() {
         const r = await fetch('/api/operator/job-status');
         const data = await r.json();
         const status = data.status || 'configured';
+        const msg = data.message || 'System ready';
         
-        // Update Badge
+        // Trigger animation if status changed
+        if (status !== lastJobStatus) {
+            if (window.Animations) {
+                // Subtle pop for badge change
+                anime({
+                    targets: statusBadge,
+                    scale: [1, 1.1, 1],
+                    duration: 400,
+                    easing: 'easeOutBack'
+                });
+                
+                // Cross-fade for message
+                if (statusMsg) {
+                    anime({
+                        targets: statusMsg,
+                        opacity: [1, 0, 1],
+                        translateY: [0, -5, 0],
+                        duration: 500,
+                        easing: 'easeInOutQuad',
+                        update: (anim) => {
+                            if (anim.progress > 50 && statusMsg.textContent !== msg) {
+                                statusMsg.textContent = msg;
+                            }
+                        }
+                    });
+                }
+            } else {
+                statusMsg.textContent = msg;
+            }
+            lastJobStatus = status;
+        } else {
+            // Just update message if it changed within same status
+            if (statusMsg && statusMsg.textContent !== msg) {
+                statusMsg.textContent = msg;
+            }
+        }
+        
+        // Update Badge Class
         statusBadge.className = 'status-badge-apple ' + status;
         statusLabel.textContent = status.toUpperCase();
-        statusMsg.textContent = data.message || 'System ready';
 
         // Update Action Button
         if (status === 'running') {
