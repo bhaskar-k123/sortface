@@ -180,6 +180,32 @@ async function loadPersonSelection() {
             else if (N === M) summaryEl.textContent = 'All selected';
             else summaryEl.textContent = N + ' of ' + M + ' selected';
         }
+        
+        // Render selected thumbnails in the Search For card
+        const thumbContainer = document.getElementById('selected-people-thumbnails');
+        if (thumbContainer) {
+            const MAX_THUMBS = 5;
+            const selectedPersons = persons.filter(p => selectedPersonIds.has(p.person_id));
+            
+            if (selectedPersons.length === 0) {
+                thumbContainer.innerHTML = '';
+            } else {
+                const thumbs = selectedPersons.slice(0, MAX_THUMBS).map(p => 
+                    `<img src="/api/operator/persons/${p.person_id}/thumbnail" 
+                          alt="${escapeHtml(p.name)}" 
+                          class="thumb-avatar" 
+                          title="${escapeHtml(p.name)}"
+                          onerror="this.style.display='none';">`
+                );
+                
+                // Add overflow badge if more than MAX_THUMBS
+                if (selectedPersons.length > MAX_THUMBS) {
+                    thumbs.push(`<span class="thumb-overflow">+${selectedPersons.length - MAX_THUMBS}</span>`);
+                }
+                
+                thumbContainer.innerHTML = thumbs.join('');
+            }
+        }
     } catch (error) {
         if (container) container.innerHTML = '<p class="loading">Error loading persons</p>';
         if (summaryEl) summaryEl.textContent = '—';
@@ -584,6 +610,17 @@ async function loadProgress() {
                 sourceLine.innerHTML = '';
             }
             
+            // Update Stats Dashboard Grid
+            var statImagesDone = document.getElementById('stat-images-done');
+            var statSpeed = document.getElementById('stat-speed');
+            var statPercent = document.getElementById('stat-percent');
+            var statElapsed = document.getElementById('stat-elapsed');
+            
+            if (statImagesDone) statImagesDone.textContent = done.toLocaleString();
+            if (statSpeed) statSpeed.textContent = (d.images_per_second || 0).toFixed(2);
+            if (statPercent) statPercent.textContent = pct.toFixed(0) + '%';
+            if (statElapsed) statElapsed.textContent = d.elapsed_formatted || '—';
+            
             // Always set current image text (placeholder if empty) to prevent layout shift
             if (currentImageEl) {
                 if (d.current_image && String(d.current_image).trim()) {
@@ -603,15 +640,20 @@ async function loadProgress() {
                 }
             }
             
+            // Update speed graph even if speedEl is hidden
+            if (d.images_per_second != null && d.images_per_second > 0) {
+                updateSpeedGraph(d.images_per_second);
+            }
+            
             bar.style.width = pct + '%';
-            text.textContent = done + ' / ' + total + ' (' + pct.toFixed(1) + '%)';
-            if (d.current_batch_state || d.current_image_range) {
-                text.textContent += ' — ' + (d.current_batch_state || '') + (d.current_image_range ? ' ' + d.current_image_range : '');
+            text.textContent = done.toLocaleString() + ' / ' + total.toLocaleString();
+            if (d.current_batch_state) {
+                text.textContent += ' — ' + d.current_batch_state;
             }
             var t = '';
             if (d.elapsed_formatted) t += 'Elapsed: ' + d.elapsed_formatted;
             if (d.estimated_remaining_formatted) t += (t ? ' | ' : '') + 'ETC: ~' + d.estimated_remaining_formatted;
-            time.textContent = t || '—';
+            if (time) time.textContent = t || '—';
         } else if (isRunning) {
             // Job is running but no images discovered yet - show initializing
             if (emptyEl) emptyEl.style.display = 'none';
