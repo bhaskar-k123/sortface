@@ -92,15 +92,15 @@
 [data-theme="dark"] .btn-small, 
 [data-theme="dark"] .person-selection-compact .btn,
 [data-theme="dark"] .job-config-value-row .btn {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: rgba(255, 255, 255, 0.15);
     color: #ffffff;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 [data-theme="dark"] .btn-small .icon,
 [data-theme="dark"] .person-selection-compact .btn .icon,
 [data-theme="dark"] .job-config-value-row .btn .icon {
-    stroke: #000000;
+    stroke: #ffffff;
 }
 
 [data-theme="dark"] .icon {
