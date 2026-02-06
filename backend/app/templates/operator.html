@@ -25,18 +25,24 @@
             <!-- 1. Job Config -->
             <section class="panel" id="job-config-card">
                 <h2><i data-lucide="settings" class="icon"></i>Job Configuration</h2>
-                <div class="job-config-summary">
-                    <div class="job-config-block">
-                        <div class="job-config-label">Source</div>
+                <div class="job-config-summary job-config-fill">
+                    <div class="job-config-block job-config-block-large">
+                        <div class="job-config-icon-label">
+                            <i data-lucide="folder-open" class="icon icon-lg config-icon"></i>
+                            <span class="job-config-label-large">Source</span>
+                        </div>
                         <div class="job-config-value-row">
-                            <span id="job-config-source" class="job-config-path">—</span>
+                            <span id="job-config-source" class="job-config-path job-config-path-large">—</span>
                             <button type="button" class="btn btn-small btn-icon-only" onclick="openJobConfigModal()"><i data-lucide="pencil" class="icon icon-sm"></i></button>
                         </div>
                     </div>
-                    <div class="job-config-block">
-                        <div class="job-config-label">Output</div>
+                    <div class="job-config-block job-config-block-large">
+                        <div class="job-config-icon-label">
+                            <i data-lucide="folder-check" class="icon icon-lg config-icon"></i>
+                            <span class="job-config-label-large">Output</span>
+                        </div>
                         <div class="job-config-value-row">
-                            <span id="job-config-output" class="job-config-path">—</span>
+                            <span id="job-config-output" class="job-config-path job-config-path-large">—</span>
                             <button type="button" class="btn btn-small btn-icon-only" onclick="openJobConfigModal()"><i data-lucide="pencil" class="icon icon-sm"></i></button>
                         </div>
                     </div>
@@ -47,9 +53,21 @@
             <!-- 2. Search For -->
             <section class="panel" id="job-control-panel">
                 <h2><i data-lucide="search" class="icon"></i>Search For</h2>
-                <div id="person-selection-compact" class="person-selection-compact">
-                    <span id="person-selection-summary">—</span>
-                    <button type="button" class="btn btn-small" onclick="openPersonSelectionModal()"><i data-lucide="users" class="icon icon-sm"></i></button>
+                <div class="search-for-fill">
+                    <div class="search-for-block">
+                        <div class="search-for-icon-label">
+                            <i data-lucide="users" class="icon icon-lg config-icon"></i>
+                            <span class="search-for-label-large">People</span>
+                        </div>
+                        <!-- Thumbnail Preview Row -->
+                        <div id="selected-people-thumbnails" class="selected-thumbnails-row">
+                            <!-- Populated dynamically by JS -->
+                        </div>
+                        <div class="search-for-value-row">
+                            <span id="person-selection-summary" class="search-for-summary-large">—</span>
+                            <button type="button" class="btn btn-small" onclick="openPersonSelectionModal()"><i data-lucide="edit" class="icon icon-sm"></i></button>
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -104,13 +122,28 @@
                 </div>
                 
                 <div id="progress-section" class="progress-section" style="display: none;">
-                    <div id="progress-source-line" class="progress-source-line"></div>
-                    <!-- Always visible to prevent layout shift -->
-                    <div id="progress-current-image" class="progress-current-image">&nbsp;</div>
-                    <div id="progress-speed" class="progress-speed">&nbsp;</div>
+                    <!-- Stats Dashboard Grid -->
+                    <div class="progress-stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-images-done">0</div>
+                            <div class="stat-label">Images Done</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value stat-speed" id="stat-speed">0.00</div>
+                            <div class="stat-label">img/s Speed</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value stat-percent" id="stat-percent">0%</div>
+                            <div class="stat-label">Complete</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-elapsed">—</div>
+                            <div class="stat-label">Elapsed</div>
+                        </div>
+                    </div>
                     
                     <!-- Speed Graph - Apple-style green gradient -->
-                    <div id="speed-graph-container" class="speed-graph-container" style="display:none; width: 100%; height: 60px; margin: 0.5rem 0;">
+                    <div id="speed-graph-container" class="speed-graph-container" style="display:none; width: 100%; height: 60px; margin: 0.75rem 0;">
                         <svg width="100%" height="100%" viewBox="0 0 300 60" preserveAspectRatio="none">
                             <defs>
                                 <linearGradient id="speedGradient" x1="0" x2="0" y1="0" y2="1">
@@ -124,11 +157,17 @@
                         </svg>
                     </div>
 
+                    <!-- Progress Bar -->
                     <div id="progress-display" class="progress-display">
                         <div class="progress-bar-wrap"><div id="progress-bar" class="progress-bar" style="width: 0%;"></div></div>
                         <div id="progress-text" class="progress-text">—</div>
-                        <div id="progress-time" class="progress-time"></div>
                     </div>
+                    
+                    <!-- Hidden legacy elements for JS compatibility -->
+                    <div id="progress-source-line" style="display:none;"></div>
+                    <div id="progress-current-image" style="display:none;"></div>
+                    <div id="progress-speed" style="display:none;"></div>
+                    <div id="progress-time" style="display:none;"></div>
                 </div>
                 
                 <!-- No job message -->
