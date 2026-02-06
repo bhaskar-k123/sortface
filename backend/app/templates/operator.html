@@ -75,9 +75,10 @@
             <section class="panel" id="job-status-panel">
                 <h2><i data-lucide="activity" class="icon"></i>Job Status</h2>
                 
-                <div class="job-status-content-v2">
-                    <div id="job-status-card-inner" class="status-card-inner">
-                        <div id="job-status-display-v2" class="status-display-v2">
+                <div class="job-status-content-v2 dense-layout">
+                    <div id="job-status-split-zone" class="status-split-zone">
+                        <!-- Left Zone: Status Info -->
+                        <div class="status-info-zone">
                             <div class="status-badge-apple idle" id="job-status-badge">
                                 <span class="dot"></span>
                                 <span id="status-label">Idle</span>
@@ -85,7 +86,8 @@
                             <div id="job-status-message-v2" class="status-message-v2">Ready to process images</div>
                         </div>
 
-                        <div class="job-primary-actions">
+                        <!-- Right Zone: Primary Actions -->
+                        <div class="status-actions-zone">
                             <button id="btn-job-action" class="btn btn-pill-apple primary" onclick="handleJobActionMain()" disabled>
                                 <i data-lucide="play" class="icon icon-sm"></i>
                                 <span>Start Job</span>
@@ -96,7 +98,8 @@
                         </div>
                     </div>
 
-                    <div class="worker-status-refined">
+                    <!-- Integrated Footer for Worker Status -->
+                    <div class="worker-status-banner">
                         <div class="worker-connection">
                             <div id="worker-dot-v2" class="connection-dot offline"></div>
                             <span id="worker-text-v2">Worker Offline</span>
