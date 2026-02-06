@@ -107,11 +107,11 @@
     stroke: white;
 }
 
-/* Re-override black for white buttons */
+/* Re-override white for white buttons (previously black, now aligned with dark theme) */
 [data-theme="dark"] .btn-small .icon,
 [data-theme="dark"] .person-selection-compact .btn .icon,
 [data-theme="dark"] .job-config-value-row .btn .icon {
-    stroke: #000000;
+    stroke: #ffffff;
 }
 
 * {
