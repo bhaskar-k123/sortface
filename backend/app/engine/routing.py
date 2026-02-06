@@ -134,6 +134,72 @@ class RoutingEngine:
                 "error": str(e),
             }
     
+    async def route_image_to_group(
+        self,
+        batch_id: int,
+        image_id: int,
+        staged_path: Path,
+        original_stem: str,
+        file_hash: str,
+        group_folder_name: str
+    ) -> list[dict]:
+        """
+        Route a staged image to a group folder (for group mode).
+        
+        Instead of routing to individual person folders, routes to a single
+        group folder containing photos where ALL selected people appear.
+        
+        Args:
+            batch_id: Current batch ID
+            image_id: Image database ID
+            staged_path: Path to compressed image in staging
+            original_stem: Original filename stem (without extension)
+            file_hash: SHA-256 hash for deterministic naming
+            group_folder_name: Name of the group output folder
+        
+        Returns:
+            List with single routing result
+        """
+        # Generate deterministic output filename
+        output_filename = generate_deterministic_filename(original_stem, file_hash)
+        
+        # Create group folder path
+        group_folder = self.output_root / group_folder_name
+        output_path = group_folder / output_filename
+        output_path_str = str(output_path)
+        
+        # Idempotent: skip if output exists
+        if output_path.exists():
+            return [{
+                "group_folder": group_folder_name,
+                "output_path": output_path_str,
+                "status": "skipped",
+                "reason": "exists",
+            }]
+        
+        try:
+            # Create group folder if it doesn't exist
+            group_folder.mkdir(parents=True, exist_ok=True)
+            
+            # Atomic write: copy to temp, then rename
+            temp_output = output_path.with_suffix(".tmp")
+            shutil.copy2(staged_path, temp_output)
+            temp_output.rename(output_path)
+            
+            return [{
+                "group_folder": group_folder_name,
+                "person_name": group_folder_name,  # For compatibility with progress display
+                "output_path": output_path_str,
+                "status": "success",
+            }]
+        except Exception as e:
+            return [{
+                "group_folder": group_folder_name,
+                "output_path": output_path_str,
+                "status": "error",
+                "error": str(e),
+            }]
+    
     def cleanup_staged_file(self, staged_path: Path) -> None:
         """
         Remove a file from staging after successful routing.
