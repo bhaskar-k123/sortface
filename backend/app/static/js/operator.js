@@ -7,6 +7,7 @@
 let selectedPersonIds = new Set();
 let groupModeEnabled = false;  // NEW: Group mode state
 let lastJobStatus = ''; // Track status for animations
+let allPersons = []; // Global store for registry data
 
 const THEME_KEY = 'face_segregation_theme';
 
@@ -102,34 +103,63 @@ async function loadPersons() {
  */
 async function loadRegistryCard() {
     const grid = document.getElementById('registry-thumb-grid');
+    const badge = document.getElementById('registry-count-badge');
     if (!grid) return;
+    
     try {
         const response = await fetch('/api/operator/persons');
         const data = await response.json();
-        const persons = (data.persons || []).slice(0, 9);
-        const cells = [];
-        for (let i = 0; i < 9; i++) {
-            const p = persons[i];
-            if (p) {
-                cells.push(`<div class="registry-thumb-cell"><img src="/api/operator/persons/${p.person_id}/thumbnail" alt="" onerror="this.parentElement.classList.add('placeholder'); this.innerHTML='<i data-lucide=\'user\' class=\'icon\'></i>';"></div>`);
-            } else {
-                cells.push('<div class="registry-thumb-cell placeholder"><i data-lucide="user" class="icon"></i></div>');
-            }
-        }
-        cells.push('<div class="registry-thumb-cell add-person-cell" onclick="event.stopPropagation(); openPersonRegistryModal(\'add\');" title="Add person"><i data-lucide="plus" class="icon-lg"></i></div>');
-        grid.innerHTML = cells.join('');
-        lucide.createIcons();
+        allPersons = data.persons || [];
         
-        // Animate grid cells
-        if (window.Animations) {
-            Animations.cards(grid.querySelectorAll('.registry-thumb-cell'));
+        // Update Count Badge
+        if (badge) {
+            badge.textContent = `${allPersons.length} People`;
         }
+
+        renderRegistryGrid(allPersons);
     } catch (error) {
-        grid.innerHTML = Array(9).fill('<div class="registry-thumb-cell placeholder"><i data-lucide="user" class="icon"></i></div>').join('') +
-            '<div class="registry-thumb-cell add-person-cell" onclick="event.stopPropagation(); openPersonRegistryModal(\'add\');" title="Add person"><i data-lucide="plus" class="icon-lg"></i></div>';
-        lucide.createIcons();
         console.error('Error loading registry card:', error);
     }
+}
+
+/**
+ * Render thumbnails to the registry grid
+ */
+function renderRegistryGrid(persons) {
+    const grid = document.getElementById('registry-thumb-grid');
+    if (!grid) return;
+
+    if (persons.length === 0) {
+        grid.innerHTML = '<div class="registry-empty-state">No people found</div>';
+        return;
+    }
+
+    const cells = persons.map(p => `
+        <div class="registry-thumb-cell" title="${p.name}">
+            <img src="/api/operator/persons/${p.person_id}/thumbnail" alt="${p.name}" 
+                 onerror="this.parentElement.classList.add('placeholder'); this.innerHTML='<i data-lucide=\\'user\\' class=\\'icon\\'></i>'; lucide.createIcons();">
+        </div>
+    `);
+    
+    grid.innerHTML = cells.join('');
+    lucide.createIcons();
+    
+    // Animate grid cells
+    if (window.Animations) {
+        Animations.cards(grid.querySelectorAll('.registry-thumb-cell'));
+    }
+}
+
+/**
+ * Filter the registry grid based on search input
+ */
+function filterRegistry() {
+    const query = document.getElementById('registry-search-input').value.toLowerCase();
+    const filtered = allPersons.filter(p => 
+        p.name.toLowerCase().includes(query) || 
+        p.person_id.toLowerCase().includes(query)
+    );
+    renderRegistryGrid(filtered);
 }
 
 /**

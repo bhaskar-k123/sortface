@@ -181,11 +181,33 @@
             
             <!-- 5. Person Registry -->
             <section class="panel person-registry-card" id="person-registry-card">
-                <div class="registry-card-header">
-                    <h2><i data-lucide="users" class="icon"></i>Person Registry</h2>
-                </div>
-                <div id="registry-thumb-grid" class="registry-thumb-grid" onclick="openPersonRegistryModal('list')">
-                    <!-- 5 thumbs + add circle, filled by JS -->
+                <div class="registry-split-layout">
+                    <!-- Left Sidebar: Info & Search -->
+                    <div class="registry-sidebar">
+                        <div class="registry-sidebar-header">
+                            <h2><i data-lucide="users" class="icon"></i>Registry</h2>
+                            <div class="registry-count-badge" id="registry-count-badge">0 People</div>
+                        </div>
+                        
+                        <div class="registry-search-box">
+                            <i data-lucide="search" class="icon icon-sm"></i>
+                            <input type="text" id="registry-search-input" placeholder="Search people..." onkeyup="filterRegistry()">
+                        </div>
+
+                        <div class="registry-sidebar-actions">
+                            <button class="btn btn-subtle-apple btn-sm" onclick="openPersonRegistryModal('add')">
+                                <i data-lucide="user-plus" class="icon icon-sm"></i>
+                                <span>Add New Person</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Right Main: Grid -->
+                    <div class="registry-main-grid-wrapper" onclick="openPersonRegistryModal('list')">
+                        <div id="registry-thumb-grid" class="registry-thumb-grid">
+                            <!-- Filled by JS -->
+                        </div>
+                    </div>
                 </div>
             </section>
         </main>

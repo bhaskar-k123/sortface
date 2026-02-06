@@ -1874,11 +1874,68 @@ input[type="file"]::file-selector-button:hover {
     box-shadow: var(--shadow-soft);
 }
 
-/* Registry Thumbnail Grid Scrollable */
-#person-registry-card .registry-thumb-grid {
-    flex: 1;
+/* Registry Split View Layout */
+.registry-split-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    min-height: 240px;
+    height: 100%;
+}
+
+.registry-sidebar {
+    background: rgba(0, 0, 0, 0.02);
+    border-right: 1px solid var(--border-color);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+[data-theme="dark"] .registry-sidebar {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.registry-sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.registry-count-badge {
+    padding: 0.25rem 0.6rem;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+
+.registry-search-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.registry-search-box .icon {
+    position: absolute;
+    left: 10px;
+    color: var(--text-muted);
+}
+
+#registry-search-input {
+    width: 100%;
+    padding: 0.6rem 0.6rem 0.6rem 2.2rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    background: var(--bg-primary);
+    font-family: var(--font-sans);
+    font-size: 0.9rem;
+}
+
+.registry-main-grid-wrapper {
+    padding: 1.5rem;
     overflow-y: auto;
-    min-height: 0;
+    background: transparent;
 }
 
 /* Progress Section Fill */
@@ -2107,44 +2164,88 @@ input[type="file"]::file-selector-button:hover {
 }
 .registry-thumb-grid {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    grid-template-rows: repeat(2, 1fr);
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
     gap: 1rem;
     width: 100%;
-    max-width: 520px;
-    margin: auto; /* Centering vertically and horizontally */
     cursor: pointer;
-    padding: 1rem;
 }
+
 .registry-thumb-cell {
     background: var(--bg-tertiary);
     border: 1px solid var(--border-color);
-    border-radius: 22%; /* Squircle-like rounded square for better space usage */
+    border-radius: 12px;
     overflow: hidden;
     aspect-ratio: 1;
-    min-width: 0;
-    min-height: 0;
-    max-width: 100%;
-    max-height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all var(--duration-fast) var(--ease-apple);
+    transition: all 0.3s var(--ease-apple);
+    position: relative;
+    cursor: pointer;
 }
 
 .registry-thumb-cell:hover {
-    transform: scale(1.05);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    z-index: 2;
+    transform: translateY(-4px) scale(1.02);
+    border-color: var(--accent-cyan);
+    box-shadow: 0 8px 24px rgba(0, 0, 122, 0.15);
 }
+
 .registry-thumb-cell img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    transition: transform 0.5s var(--ease-apple);
 }
+
+.registry-thumb-cell:hover img {
+    transform: scale(1.1);
+}
+
 .registry-thumb-cell.placeholder {
-    border-style: dashed;
+    color: var(--text-muted);
+    background: var(--bg-secondary);
+}
+
+.registry-thumb-cell .icon {
+    width: 24px;
+    height: 24px;
+}
+
+.registry-empty-state {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem;
+    color: var(--text-muted);
+    font-size: 1rem;
+    font-style: italic;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    border: 1px dashed var(--border-color);
+}
+
+.btn-subtle-apple {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1rem;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 0.85rem;
+    transition: all 0.2s var(--ease-apple);
+}
+
+.btn-subtle-apple:hover {
     background: var(--bg-primary);
+    border-color: var(--accent-cyan);
+    color: var(--accent-cyan);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 .registry-thumb-cell.add-person-cell {
     background: var(--bg-tertiary);
