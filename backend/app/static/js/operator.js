@@ -5,6 +5,7 @@
 
 // Global state for selected persons
 let selectedPersonIds = new Set();
+let groupModeEnabled = false;  // NEW: Group mode state
 
 const THEME_KEY = 'face_segregation_theme';
 
@@ -244,6 +245,36 @@ function selectNoPersons() {
 }
 
 /**
+ * Toggle group mode on/off
+ */
+function toggleGroupMode() {
+    groupModeEnabled = !groupModeEnabled;
+    const btn = document.getElementById('btn-group-mode');
+    const config = document.getElementById('group-mode-config');
+    
+    if (groupModeEnabled) {
+        btn.classList.add('active');
+        btn.innerHTML = '<i data-lucide="users" class="icon icon-sm"></i>Group Mode ON';
+        if (config) config.style.display = 'block';
+        
+        // Animation: highlight the button
+        if (window.Animations) {
+            anime({
+                targets: btn,
+                scale: [1, 1.05, 1],
+                duration: 300,
+                easing: 'easeOutBack'
+            });
+        }
+    } else {
+        btn.classList.remove('active');
+        btn.innerHTML = '<i data-lucide="users" class="icon icon-sm"></i>Select Group';
+        if (config) config.style.display = 'none';
+    }
+    lucide.createIcons();
+}
+
+/**
  * Trigger file picker for adding reference
  */
 function triggerAddReference(personId) {
@@ -355,8 +386,29 @@ async function loadJobConfig() {
         if (data.selected_person_ids && data.selected_person_ids.length > 0) {
             selectedPersonIds = new Set(data.selected_person_ids);
         }
+        
+        // Load group mode state
+        groupModeEnabled = data.group_mode || false;
+        const btn = document.getElementById('btn-group-mode');
+        const config = document.getElementById('group-mode-config');
+        if (groupModeEnabled) {
+            if (btn) {
+                btn.classList.add('active');
+                btn.innerHTML = '<i data-lucide="users" class="icon icon-sm"></i>Group Mode ON';
+            }
+            if (config) config.style.display = 'block';
+            if (data.group_folder_name) {
+                const folderInput = document.getElementById('group-folder-name');
+                if (folderInput) folderInput.value = data.group_folder_name;
+            }
+        } else {
+            if (btn) btn.classList.remove('active');
+            if (config) config.style.display = 'none';
+        }
+        
         updateJobConfigCard();
         loadPersonSelection();
+        lucide.createIcons();
     } catch (error) {
         console.error('Error loading job config:', error);
         loadPersonSelection();
@@ -912,14 +964,31 @@ function closePersonSelectionModal() {
 
 async function applyPersonSelection() {
     try {
+        var selectedIds = Array.from(selectedPersonIds);
+        
+        // Validate group mode requirements
+        if (groupModeEnabled) {
+            if (selectedIds.length < 2) {
+                alert('Group mode requires at least 2 people selected.');
+                return;
+            }
+            var folderName = (document.getElementById('group-folder-name')?.value || '').trim();
+            if (!folderName) {
+                alert('Please enter a folder name for group mode.');
+                document.getElementById('group-folder-name')?.focus();
+                return;
+            }
+        }
+        
         var r = await fetch('/api/operator/job-config');
         var data = await r.json();
-        var selectedIds = Array.from(selectedPersonIds);
         var payload = {
             source_root: data.source_root || '',
             output_root: data.output_root || '',
             selected_person_ids: selectedIds.length > 0 ? selectedIds : null,
-            selected_image_paths: null
+            selected_image_paths: null,
+            group_mode: groupModeEnabled,
+            group_folder_name: groupModeEnabled ? document.getElementById('group-folder-name')?.value?.trim() : null
         };
         var res = await fetch('/api/operator/job-config', {
             method: 'POST',
@@ -930,6 +999,12 @@ async function applyPersonSelection() {
             closePersonSelectionModal();
             loadPersonSelection();
             loadJobStatus();
+            
+            // Show success message based on mode
+            var msg = groupModeEnabled 
+                ? 'Group mode enabled. Photos with ALL ' + selectedIds.length + ' people → ' + payload.group_folder_name
+                : 'Searching for ' + (selectedIds.length > 0 ? selectedIds.length : 'all') + ' person(s).';
+            console.log(msg);
         } else {
             var e = await res.json();
             alert(e.detail || 'Failed to save selection');

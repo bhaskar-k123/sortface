@@ -195,7 +195,25 @@
                 <div class="selection-buttons">
                     <button type="button" class="btn btn-small" onclick="selectAllPersons()">Select All</button>
                     <button type="button" class="btn btn-small" onclick="selectNoPersons()">Select None</button>
+                    <span class="selection-divider">|</span>
+                    <button type="button" class="btn btn-small" id="btn-group-mode" onclick="toggleGroupMode()">
+                        <i data-lucide="users" class="icon icon-sm"></i>Select Group
+                    </button>
                 </div>
+                
+                <!-- Group Mode Configuration (hidden by default) -->
+                <div id="group-mode-config" class="group-mode-config" style="display: none;">
+                    <div class="group-mode-hint">
+                        <i data-lucide="info" class="icon icon-sm"></i>
+                        <span><strong>Group Mode:</strong> Only photos containing <em>ALL</em> selected people will be saved to a single folder.</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="group-folder-name">Group Folder Name</label>
+                        <input type="text" id="group-folder-name" placeholder="e.g., Family_Photos or John_and_Jane" />
+                        <small>Photos with all selected people will be saved here</small>
+                    </div>
+                </div>
+                
                 <div id="person-selection-list" class="person-selection-list">
                     <p class="loading">Loading persons...</p>
                 </div>
