@@ -93,6 +93,7 @@ class FaceMatcher:
         self.threshold_strict = 0.80  # High confidence match
         self.threshold_loose = 1.00   # Lower confidence match
         self._centroids_cache: Optional[list[dict]] = None
+        self._centroid_matrix: Optional[np.ndarray] = None  # (N, 512) matrix for vectorized matching
         self._selected_person_ids: Optional[set[int]] = (
             set(selected_person_ids) if selected_person_ids else None
         )
@@ -113,6 +114,14 @@ class FaceMatcher:
         else:
             self._centroids_cache = all_centroids
             print(f"  Matching against all {len(self._centroids_cache)} person(s)")
+        
+        # Pre-build centroid matrix for vectorized distance computation
+        if self._centroids_cache:
+            self._centroid_matrix = np.array(
+                [c["centroid"] for c in self._centroids_cache]
+            )
+        else:
+            self._centroid_matrix = None
     
     async def match(
         self,
@@ -147,15 +156,12 @@ class FaceMatcher:
         # Centroids are already normalized when stored
         embedding_normalized = normalize_embedding(embedding)
         
-        # Compute distances to all centroids
-        distances = []
-        for person in self._centroids_cache:
-            dist = float(np.linalg.norm(embedding_normalized - person["centroid"]))
-            distances.append((dist, person))
-        
-        # Find minimum distance
-        distances.sort(key=lambda x: x[0])
-        min_dist, best_match = distances[0]
+        # Vectorized distance computation against all centroids at once
+        diffs = self._centroid_matrix - embedding_normalized
+        distances = np.linalg.norm(diffs, axis=1)
+        best_idx = int(np.argmin(distances))
+        min_dist = float(distances[best_idx])
+        best_match = self._centroids_cache[best_idx]
         
         # DEBUG: Log match distances (for normalized embeddings, range 0-2)
         print(f"  [MATCH] {best_match['name']}: dist={min_dist:.3f} (strict<{self.threshold_strict}, loose<{self.threshold_loose})", end="")
