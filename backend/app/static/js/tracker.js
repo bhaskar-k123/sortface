@@ -133,15 +133,33 @@ function updateBatchHistory(batches) {
         return;
     }
     
-    container.innerHTML = batches.map(batch => `
-        <div class="batch-history-item">
-            <div>
-                <span class="batch-id">Batch #${batch.batch_id}</span>
-                <span class="batch-range">${batch.image_range}</span>
+    container.innerHTML = batches.map(batch => {
+        const batchId = escapeHtml(String(batch.batch_id));
+        const range = escapeHtml(batch.image_range);
+        const state = escapeHtml(batch.state);
+        const stateClass = (batch.state || '').toLowerCase().replace(/[^a-z]/g, '');
+        return `
+            <div class="batch-history-item">
+                <div>
+                    <span class="batch-id">Batch #${batchId}</span>
+                    <span class="batch-range">${range}</span>
+                </div>
+                <span class="batch-state ${stateClass}">${state}</span>
             </div>
-            <span class="batch-state ${batch.state.toLowerCase()}">${batch.state}</span>
-        </div>
-    `).join('');
+        `;
+    }).join('');
+}
+
+/**
+ * Escape HTML to prevent XSS in innerHTML usage
+ * @param {string} text - Text to escape
+ * @returns {string} Escaped HTML
+ */
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 /**
