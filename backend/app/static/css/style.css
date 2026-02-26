@@ -2542,3 +2542,130 @@ input[type="file"]::file-selector-button:hover {
     text-align: center;
 }
 
+/* ============================================================================
+   Results Summary
+   ============================================================================ */
+
+.results-summary-section {
+    margin-top: 0.75rem;
+    border-top: 1px solid var(--border-color);
+    padding-top: 0.5rem;
+}
+
+.results-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    background: none;
+    border: none;
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    font-family: var(--font-sans);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s var(--ease-apple);
+}
+
+.results-toggle:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+.results-chevron {
+    margin-left: auto;
+    transition: transform 0.3s var(--ease-apple);
+}
+
+.results-summary-body {
+    padding: 0.5rem 0;
+    animation: tab-enter 0.3s var(--ease-apple);
+}
+
+.results-summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.results-summary-table th {
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    padding: 0.4rem 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.results-summary-table th.num,
+.results-summary-table td.num {
+    text-align: right;
+}
+
+.results-summary-table td {
+    padding: 0.6rem 0.75rem;
+    color: var(--text-primary);
+    font-weight: 500;
+    font-size: 0.95rem;
+}
+
+.results-summary-table td.person-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.results-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.results-summary-table td.folder {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.results-summary-table td.num {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    color: var(--accent-cyan);
+}
+
+.results-summary-table tbody tr:nth-child(even) {
+    background: rgba(0, 0, 0, 0.015);
+}
+
+[data-theme="dark"] .results-summary-table tbody tr:nth-child(even) {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.results-summary-table .unknown-row td {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.results-summary-table .unknown-row td.num {
+    color: var(--text-secondary);
+}
+
+.results-summary-table .total-row td {
+    border-top: 1px solid var(--border-color);
+    font-weight: 700;
+    color: var(--text-primary);
+    padding-top: 0.6rem;
+}
+
+.results-summary-table .total-row td.num {
+    color: var(--accent-green);
+    font-size: 1rem;
+}
+
