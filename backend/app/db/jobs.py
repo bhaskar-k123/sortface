@@ -464,3 +464,80 @@ async def get_image_results_for_batch(batch_id: int) -> list[dict]:
     return results
 
 
+# ============================================================================
+# Job Results Summary
+# ============================================================================
+
+async def get_job_results_summary(job_id: Optional[int] = None) -> Optional[dict]:
+    """
+    Get per-person match results for a job.
+    If job_id is None, uses the most recent job.
+    Returns dict with total_processed, total_unknown, and per-person breakdown.
+    """
+    db = await get_db()
+
+    # Find job
+    if job_id is None:
+        cursor = await db.execute(
+            "SELECT job_id, total_images, processed_images, status FROM jobs ORDER BY created_at DESC LIMIT 1"
+        )
+    else:
+        cursor = await db.execute(
+            "SELECT job_id, total_images, processed_images, status FROM jobs WHERE job_id = ?",
+            (job_id,)
+        )
+    job_row = await cursor.fetchone()
+    if not job_row:
+        return None
+
+    jid = job_row["job_id"]
+
+    # Per-person photo counts from image_results.matched_person_ids JSON
+    # json_each() explodes the JSON array so we can JOIN to persons
+    cursor = await db.execute(
+        """SELECT p.person_id, p.name, p.output_folder_rel,
+                  COUNT(DISTINCT ir.image_id) AS photo_count
+           FROM image_results ir
+           JOIN batches b ON ir.batch_id = b.batch_id
+           JOIN json_each(ir.matched_person_ids) je
+           JOIN persons p ON p.person_id = je.value
+           WHERE b.job_id = ?
+             AND ir.matched_person_ids IS NOT NULL
+             AND ir.matched_person_ids != '[]'
+           GROUP BY p.person_id
+           ORDER BY photo_count DESC""",
+        (jid,)
+    )
+    person_rows = await cursor.fetchall()
+
+    # Aggregate totals from image_results
+    cursor = await db.execute(
+        """SELECT COUNT(*) AS total_processed,
+                  COALESCE(SUM(unknown_count), 0) AS total_unknown
+           FROM image_results ir
+           JOIN batches b ON ir.batch_id = b.batch_id
+           WHERE b.job_id = ?""",
+        (jid,)
+    )
+    agg_row = await cursor.fetchone()
+
+    persons = [
+        {
+            "person_id": r["person_id"],
+            "name": r["name"],
+            "folder": r["output_folder_rel"],
+            "photo_count": r["photo_count"],
+        }
+        for r in person_rows
+    ]
+
+    return {
+        "job_id": jid,
+        "job_status": job_row["status"],
+        "total_images": job_row["total_images"],
+        "total_processed": agg_row["total_processed"] if agg_row else 0,
+        "total_unknown": agg_row["total_unknown"] if agg_row else 0,
+        "persons": persons,
+    }
+
+
