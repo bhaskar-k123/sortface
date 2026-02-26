@@ -172,6 +172,29 @@
                     <div id="progress-speed" style="display:none;"></div>
                     <div id="progress-time" style="display:none;"></div>
                 </div>
+
+                <!-- Results Summary (shown when data available) -->
+                <div id="results-summary-section" class="results-summary-section" style="display: none;">
+                    <button type="button" class="results-toggle" onclick="toggleResultsPanel()">
+                        <i data-lucide="bar-chart-3" class="icon icon-sm"></i>
+                        <span>Results Breakdown</span>
+                        <i data-lucide="chevron-down" class="icon icon-sm results-chevron" id="results-chevron"></i>
+                    </button>
+                    <div id="results-summary-body" class="results-summary-body" style="display: none;">
+                        <table class="results-summary-table">
+                            <thead>
+                                <tr>
+                                    <th>Person</th>
+                                    <th>Folder</th>
+                                    <th class="num">Photos</th>
+                                </tr>
+                            </thead>
+                            <tbody id="results-summary-tbody">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
                 
                 <!-- No job message -->
                 <div id="progress-empty" class="progress-empty">

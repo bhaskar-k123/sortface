@@ -723,6 +723,9 @@ async function loadProgress() {
             if (d.elapsed_formatted) t += 'Elapsed: ' + d.elapsed_formatted;
             if (d.estimated_remaining_formatted) t += (t ? ' | ' : '') + 'ETC: ~' + d.estimated_remaining_formatted;
             if (time) time.textContent = t || '—';
+
+            // Load results summary when there is progress
+            if (done > 0) loadResultsSummary();
         } else if (isRunning) {
             // Job is running but no images discovered yet - show initializing
             if (emptyEl) emptyEl.style.display = 'none';
@@ -926,6 +929,74 @@ function updateSpeedGraph(speed) {
     
     if (areaPath) areaPath.setAttribute('d', areaD);
     if (linePath) linePath.setAttribute('d', lineD);
+}
+
+// ============================================================================
+// Results Summary
+// ============================================================================
+
+let _resultsSummaryCache = '';
+
+/**
+ * Load and display per-person results breakdown
+ */
+async function loadResultsSummary() {
+    var section = document.getElementById('results-summary-section');
+    var tbody = document.getElementById('results-summary-tbody');
+    if (!section || !tbody) return;
+
+    try {
+        var r = await fetch('/api/tracker/results-summary');
+        var d = await r.json();
+
+        if (!d.total_processed || d.total_processed === 0) {
+            section.style.display = 'none';
+            return;
+        }
+
+        // Build a cache key to avoid unnecessary DOM updates
+        var key = JSON.stringify(d.persons) + d.total_unknown;
+        if (key === _resultsSummaryCache) return;
+        _resultsSummaryCache = key;
+
+        var rows = '';
+        var totalPhotos = 0;
+        (d.persons || []).forEach(function(p) {
+            totalPhotos += p.photo_count;
+            rows += '<tr>'
+                + '<td class="person-cell"><img src="/api/operator/persons/' + p.person_id + '/thumbnail" class="results-avatar" alt=""> ' + escapeHtml(p.name) + '</td>'
+                + '<td class="folder">' + escapeHtml(p.folder) + '</td>'
+                + '<td class="num">' + p.photo_count.toLocaleString() + '</td>'
+                + '</tr>';
+        });
+
+        rows += '<tr class="total-row">'
+            + '<td>Total Processed</td>'
+            + '<td class="folder"></td>'
+            + '<td class="num">' + d.total_processed.toLocaleString() + '</td>'
+            + '</tr>';
+
+        tbody.innerHTML = rows;
+        section.style.display = 'block';
+        lucide.createIcons();
+    } catch (e) {
+        // Silently ignore - results summary is a non-critical feature
+    }
+}
+
+/**
+ * Toggle the results panel open/closed
+ */
+function toggleResultsPanel() {
+    var body = document.getElementById('results-summary-body');
+    var chevron = document.getElementById('results-chevron');
+    if (!body) return;
+
+    var isOpen = body.style.display !== 'none';
+    body.style.display = isOpen ? 'none' : 'block';
+    if (chevron) {
+        chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+    }
 }
 
 /**
