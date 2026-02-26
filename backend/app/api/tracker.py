@@ -11,6 +11,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 from ..config import settings
+from ..db.jobs import get_job_results_summary
 
 
 router = APIRouter()
@@ -139,3 +140,40 @@ async def get_worker_status():
         
     except Exception:
         return WorkerStatusResponse(online=False)
+
+
+# ============================================================================
+# Results Summary
+# ============================================================================
+
+class PersonResult(BaseModel):
+    """Per-person match result."""
+    person_id: int
+    name: str
+    folder: str
+    photo_count: int
+
+
+class ResultsSummaryResponse(BaseModel):
+    """Response model for job results summary."""
+    job_id: Optional[int] = None
+    job_status: Optional[str] = None
+    total_images: int = 0
+    total_processed: int = 0
+    total_unknown: int = 0
+    persons: list[PersonResult] = []
+
+
+@router.get("/results-summary", response_model=ResultsSummaryResponse)
+async def get_results_summary():
+    """
+    Get per-person match results for the most recent job.
+    Read-only endpoint querying commit_log and image_results.
+    """
+    try:
+        data = await get_job_results_summary()
+        if not data:
+            return ResultsSummaryResponse()
+        return ResultsSummaryResponse(**data)
+    except Exception:
+        return ResultsSummaryResponse()
