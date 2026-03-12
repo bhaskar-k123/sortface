@@ -340,8 +340,24 @@
                         </div>
                         <div class="form-group">
                             <label for="reference-image">Reference Images (select multiple)</label>
-                            <input type="file" id="reference-image" name="reference_image" accept=".jpg,.jpeg,.png" multiple required>
-                            <small>Each photo must have exactly ONE face. Select multiple with Ctrl+Click.</small>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <input type="file" id="reference-image" name="reference_image" accept=".jpg,.jpeg,.png" multiple style="flex: 1;">
+                                <button type="button" class="btn-icon-subtle" onclick="clearFileInput('reference-image')" title="Clear selected files" style="padding: 4px;">
+                                    <i data-lucide="x" class="icon icon-sm"></i>
+                                </button>
+                            </div>
+                            <div style="margin-top: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                                <button type="button" class="btn btn-subtle-apple btn-sm" onclick="openCameraModal('seed', null)">
+                                    <i data-lucide="camera" class="icon icon-sm"></i> Take Photo
+                                </button>
+                                <span id="seed-camera-status" style="display: none; color: var(--accent-green); font-size: 0.85rem; align-items: center; gap: 0.25rem;">
+                                    <i data-lucide="check-circle" class="icon icon-sm"></i> <span id="seed-camera-count">0</span> camera image(s) attached
+                                    <button type="button" class="btn-icon-subtle" onclick="clearCameraImages()" aria-label="Clear camera images" style="margin-left: 4px; padding: 2px;">
+                                        <i data-lucide="x" class="icon" style="width: 14px; height: 14px;"></i>
+                                    </button>
+                                </span>
+                            </div>
+                            <small style="display: block; margin-top: 0.5rem;">Each photo must have exactly ONE face. Select multiple with Ctrl+Click or use Camera.</small>
                         </div>
                     </form>
                     <div id="seed-person-status" class="status-message"></div>
@@ -372,11 +388,42 @@
                 <p class="person-details-row"><span class="label">Output folder:</span> <span id="person-details-folder" class="value">—</span></p>
                 <p class="person-details-row"><span class="label">References:</span> <span id="person-details-embeddings" class="value">—</span></p>
                 <div class="add-ref-section">
-                    <label class="add-ref-label" for="person-details-ref-input"><i data-lucide="plus" class="icon icon-sm"></i> Add more references (select multiple)</label>
-                    <input type="file" id="person-details-ref-input" class="add-ref-input" accept=".jpg,.jpeg,.png" multiple onchange="onPersonDetailsAddRef(this)">
+                    <label class="add-ref-label" for="person-details-ref-input" style="margin-bottom: 0.5rem; display: block;"><i data-lucide="plus" class="icon icon-sm"></i> Add more references (select multiple)</label>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <input type="file" id="person-details-ref-input" class="add-ref-input" accept=".jpg,.jpeg,.png" multiple onchange="onPersonDetailsAddRef(this)" style="flex: 1;">
+                        <button type="button" class="btn btn-subtle-apple btn-sm" onclick="openCameraModal('details', document.getElementById('person-details-modal').dataset.personId || null)" style="white-space: nowrap;">
+                            <i data-lucide="camera" class="icon icon-sm"></i> Take Photo
+                        </button>
+                    </div>
                 </div>
                 <div class="person-details-delete">
                     <button type="button" class="btn btn-danger" onclick="deletePersonFromDetailsFromModal()"><i data-lucide="trash-2" class="icon icon-sm"></i>Delete Person</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Camera Modal -->
+    <div id="camera-modal" class="modal" style="display: none; z-index: 1050;">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3><i data-lucide="camera" class="icon"></i>Take Photo</h3>
+                <button class="modal-close" onclick="closeCameraModal()"><i data-lucide="x" class="icon"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="camera-container" style="display: flex; flex-direction: column; align-items: center; gap: 1rem;">
+                    <video id="camera-preview" autoplay playsinline style="width: 100%; max-width: 600px; border-radius: 8px; background: #000;"></video>
+                    <button type="button" class="btn btn-primary" onclick="captureCameraFrame()"><i data-lucide="aperture" class="icon icon-sm"></i>Capture</button>
+                    <div id="camera-filmstrip" style="display: flex; gap: 0.5rem; overflow-x: auto; width: 100%; white-space: nowrap; padding-bottom: 0.5rem; min-height: 80px;">
+                        <!-- Thumbnails go here -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="justify-content: space-between;">
+                <div id="camera-error" style="color: var(--accent-red); font-size: 0.85rem;"></div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn" onclick="closeCameraModal()"><i data-lucide="x" class="icon icon-sm"></i>Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="confirmCameraCaptures()"><i data-lucide="check" class="icon icon-sm"></i>Confirm (<span id="camera-capture-count">0</span>)</button>
                 </div>
             </div>
         </div>
