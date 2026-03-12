@@ -8,6 +8,10 @@ let selectedPersonIds = new Set();
 let groupModeEnabled = false;  // NEW: Group mode state
 let lastJobStatus = ''; // Track status for animations
 let allPersons = []; // Global store for registry data
+let cameraStream = null; // Camera video stream
+let capturedCameraFiles = []; // Stored Blob/File from camera
+let currentCameraMode = null; // 'seed' or 'details'
+let currentCameraPersonId = null; // Used for 'details' mode
 
 const THEME_KEY = 'face_segregation_theme';
 
@@ -1010,12 +1014,14 @@ function setupSeedPersonForm() {
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        const submitBtn = form.querySelector('button[type="submit"]');
+        const submitBtn = document.getElementById('btn-submit-seed') || form.querySelector('button[type="submit"]');
         const fileInput = document.getElementById('reference-image');
         const files = fileInput.files;
         
-        if (!files || files.length === 0) {
-            showStatus(status, 'error', 'Please select at least one reference image');
+        const allFiles = Array.from(files || []).concat(capturedCameraFiles || []);
+        
+        if (allFiles.length === 0) {
+            showStatus(status, 'error', 'Please select at least one reference image or take a photo');
             return;
         }
         
@@ -1023,14 +1029,14 @@ function setupSeedPersonForm() {
         const folderName = form.querySelector('[name="folder_name"]').value;
         
         submitBtn.disabled = true;
-        submitBtn.textContent = `Processing 1/${files.length}...`;
+        submitBtn.textContent = `Processing 1/${allFiles.length}...`;
         
         try {
             // Step 1: Create person with first image
             const firstFormData = new FormData();
             firstFormData.append('name', name);
             firstFormData.append('folder_name', folderName);
-            firstFormData.append('reference_image', files[0]);
+            firstFormData.append('reference_image', allFiles[0]);
             
             const response = await fetch('/api/operator/seed-person', {
                 method: 'POST',
@@ -1050,11 +1056,11 @@ function setupSeedPersonForm() {
             let errors = [];
             
             // Step 2: Add remaining images as additional references
-            for (let i = 1; i < files.length; i++) {
-                submitBtn.textContent = `Processing ${i + 1}/${files.length}...`;
+            for (let i = 1; i < allFiles.length; i++) {
+                submitBtn.textContent = `Processing ${i + 1}/${allFiles.length}...`;
                 
                 const refFormData = new FormData();
-                refFormData.append('reference_image', files[i]);
+                refFormData.append('reference_image', allFiles[i]);
                 
                 try {
                     const refResponse = await fetch(`/api/operator/persons/${personId}/add-reference`, {
@@ -1068,11 +1074,11 @@ function setupSeedPersonForm() {
                         successCount++;
                     } else {
                         failCount++;
-                        errors.push(`${files[i].name}: ${refResult.detail || 'Failed'}`);
+                        errors.push(`${allFiles[i].name}: ${refResult.detail || 'Failed'}`);
                     }
                 } catch (err) {
                     failCount++;
-                    errors.push(`${files[i].name}: Network error`);
+                    errors.push(`${allFiles[i].name}: Network error`);
                 }
             }
             
@@ -1083,6 +1089,11 @@ function setupSeedPersonForm() {
             }
             showStatus(status, 'success', message);
             form.reset();
+            capturedCameraFiles = [];
+            const camStatusEl = document.getElementById('seed-camera-status');
+            if(camStatusEl) camStatusEl.style.display = 'none';
+            const camCountEl = document.getElementById('seed-camera-count');
+            if(camCountEl) camCountEl.textContent = '0';
             loadPersons();
             loadPersonSelection();
             loadRegistryCard();
@@ -1203,6 +1214,11 @@ function openPersonRegistryModal(tab) {
 }
 function closePersonRegistryModal() {
     Animations.modalClose(document.getElementById('person-registry-modal'));
+    capturedCameraFiles = [];
+    const camStatusEl = document.getElementById('seed-camera-status');
+    if(camStatusEl) camStatusEl.style.display = 'none';
+    const camCountEl = document.getElementById('seed-camera-count');
+    if(camCountEl) camCountEl.textContent = '0';
 }
 
 /**
@@ -1402,6 +1418,25 @@ function selectCurrentFolder() {
     closeFolderBrowser();
 }
 
+// ============================================================================
+// UI Helper functionality
+// ============================================================================
+
+function clearFileInput(inputId) {
+    const input = document.getElementById(inputId);
+    if (input) {
+        input.value = '';
+    }
+}
+
+function clearCameraImages() {
+    capturedCameraFiles = [];
+    const statusEl = document.getElementById('seed-camera-status');
+    const countEl = document.getElementById('seed-camera-count');
+    if (statusEl) statusEl.style.display = 'none';
+    if (countEl) countEl.textContent = '0';
+}
+
 // Close modals when clicking overlay or pressing Escape
 document.addEventListener('click', (e) => {
     if (!e.target || !e.target.classList || !e.target.classList.contains('modal')) return;
@@ -1409,6 +1444,7 @@ document.addEventListener('click', (e) => {
     else if (e.target.id === 'job-config-modal') closeJobConfigModal();
     else if (e.target.id === 'person-selection-modal') closePersonSelectionModal();
     else if (e.target.id === 'person-registry-modal') closePersonRegistryModal();
+    else if (e.target.id === 'camera-modal') closeCameraModal();
 });
 
 document.addEventListener('keydown', (e) => {
@@ -1417,6 +1453,169 @@ document.addEventListener('keydown', (e) => {
         closePersonSelectionModal();
         closeJobConfigModal();
         closeFolderBrowser();
+        closeCameraModal();
     }
 });
+
+// ============================================================================
+// Camera Capture functionality
+// ============================================================================
+
+async function openCameraModal(mode, personId) {
+    currentCameraMode = mode;
+    currentCameraPersonId = personId;
+    
+    capturedCameraFiles = [];
+    document.getElementById('camera-filmstrip').innerHTML = '';
+    document.getElementById('camera-error').textContent = '';
+    document.getElementById('camera-capture-count').textContent = '0';
+    
+    const modal = document.getElementById('camera-modal');
+    modal.style.display = 'flex';
+    if (window.Animations) Animations.modalOpen(modal);
+
+    try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        const video = document.getElementById('camera-preview');
+        video.srcObject = cameraStream;
+    } catch (err) {
+        console.error('Error accessing camera:', err);
+        document.getElementById('camera-error').textContent = 'Cannot access camera. Please allow permissions.';
+    }
+}
+
+function closeCameraModal() {
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+    }
+    const modal = document.getElementById('camera-modal');
+    if (!modal) return;
+    if (window.Animations) {
+        Animations.modalClose(modal);
+    } else {
+        modal.style.display = 'none';
+    }
+}
+
+function captureCameraFrame() {
+    const video = document.getElementById('camera-preview');
+    if (!video || !video.videoWidth) return;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    canvas.toBlob((blob) => {
+        if (!blob) return;
+        const timestamp = new Date().getTime();
+        const file = new File([blob], `camera_capture_${timestamp}.jpg`, { type: 'image/jpeg' });
+        capturedCameraFiles.push(file);
+
+        document.getElementById('camera-capture-count').textContent = capturedCameraFiles.length;
+
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(blob);
+        img.style.height = '80px';
+        img.style.borderRadius = '4px';
+        img.style.objectFit = 'cover';
+        img.style.border = '2px solid var(--border-color)';
+        img.style.flexShrink = '0';
+        
+        const filmstrip = document.getElementById('camera-filmstrip');
+        filmstrip.appendChild(img);
+        filmstrip.scrollLeft = filmstrip.scrollWidth;
+
+        if (window.Animations && typeof anime !== 'undefined') {
+            anime({
+                targets: img,
+                scale: [0.8, 1],
+                opacity: [0, 1],
+                duration: 300,
+                easing: 'easeOutBack'
+            });
+            anime({
+                targets: video,
+                opacity: [0.5, 1],
+                duration: 200,
+                easing: 'linear'
+            });
+        }
+    }, 'image/jpeg', 0.9);
+}
+
+async function confirmCameraCaptures() {
+    if (capturedCameraFiles.length === 0) {
+        closeCameraModal();
+        return;
+    }
+
+    if (currentCameraMode === 'seed') {
+        const statusEl = document.getElementById('seed-camera-status');
+        const countEl = document.getElementById('seed-camera-count');
+        if(countEl && statusEl) {
+            countEl.textContent = capturedCameraFiles.length;
+            statusEl.style.display = 'flex';
+        }
+        closeCameraModal();
+    } else if (currentCameraMode === 'details') {
+        const pid = currentCameraPersonId;
+        if (!pid) {
+            closeCameraModal();
+            return;
+        }
+        
+        const totalFiles = capturedCameraFiles.length;
+        // Keep a reference since we clear global array on close
+        const filesToUpload = [...capturedCameraFiles];
+        closeCameraModal();
+        
+        let successCount = 0;
+        let failCount = 0;
+        let errors = [];
+        
+        for (let i = 0; i < totalFiles; i++) {
+            const file = filesToUpload[i];
+            const formData = new FormData();
+            formData.append('reference_image', file);
+            
+            try {
+                const r = await fetch(`/api/operator/persons/${pid}/add-reference`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const res = await r.json();
+                if (r.ok) {
+                    successCount++;
+                } else {
+                    failCount++;
+                    errors.push(`${file.name}: ${res.detail || 'Failed'}`);
+                }
+            } catch (error) {
+                failCount++;
+                errors.push(`${file.name}: Network error`);
+            }
+        }
+        
+        let msg = `Added ${successCount} of ${totalFiles} reference(s) from camera.`;
+        if (failCount > 0) msg += `\n\nFailed (${failCount}):\n${errors.join('\n')}`;
+        alert(msg);
+        
+        loadPersons();
+        loadRegistryCard();
+        
+        try {
+            const r = await fetch('/api/operator/persons');
+            const d = await r.json();
+            const p = (d.persons || []).find(x => x.person_id === parseInt(pid, 10));
+            const el = document.getElementById('person-details-embeddings');
+            if (p && el) {
+                el.innerHTML = '<i data-lucide="image" class="icon icon-sm"></i> ' + p.embedding_count + ' reference(s)';
+                lucide.createIcons();
+            }
+        } catch (e) { /* ignore */ }
+    }
+}
 
