@@ -9,7 +9,7 @@ import string
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, File, Form, UploadFile, HTTPException, Query
+from fastapi import APIRouter, File, Form, UploadFile, HTTPException, Query, BackgroundTasks
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from PIL import Image
@@ -25,6 +25,7 @@ from ..db.registry import (
 )
 from ..db.jobs import get_job_config, save_job_config, get_job_status, set_job_status
 from ..engine.faces import FaceEngine
+from ..engine.cluster import run_discovery_task, get_discovery_state, _get_thumbnails_dir
 
 
 def get_thumbnails_dir() -> Path:
@@ -648,4 +649,72 @@ async def terminate_job():
     """
     await set_job_status("terminating")
     return {"status": "ok", "message": "Terminating: finishing writes, then stopping."}
+
+
+# ============================================================================
+# Auto-Discovery API
+# ============================================================================
+
+class DiscoveryStartRequest(BaseModel):
+    sample_size: int = 500
+
+@router.post("/discovery/start")
+async def start_discovery(request: DiscoveryStartRequest, background_tasks: BackgroundTasks):
+    """Start a background discovery job."""
+    state = get_discovery_state()
+    if state["status"] == "running":
+        raise HTTPException(status_code=400, detail="Discovery is already running.")
+        
+    background_tasks.add_task(run_discovery_task, request.sample_size)
+    return {"status": "started", "message": "Discovery started in the background."}
+
+@router.get("/discovery/status")
+async def get_discovery_status():
+    """Get the current status of the discovery job."""
+    return get_discovery_state()
+
+@router.get("/discovery/thumbnail/{filename}")
+async def get_discovery_thumbnail(filename: str):
+    """Get a discovery thumbnail."""
+    path = _get_thumbnails_dir() / filename
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Thumbnail not found")
+    return FileResponse(path, media_type="image/jpeg")
+
+class DiscoveryRegisterRequest(BaseModel):
+    cluster_id: int
+    name: str
+    folder_name: str
+
+@router.post("/discovery/register")
+async def register_discovered_person(request: DiscoveryRegisterRequest):
+    """Register a person from a discovered cluster."""
+    state = get_discovery_state()
+    if state["status"] != "completed":
+        raise HTTPException(status_code=400, detail="Discovery is not complete.")
+        
+    cluster = next((c for c in state["results"] if c["cluster_id"] == request.cluster_id), None)
+    if not cluster:
+        raise HTTPException(status_code=404, detail="Cluster not found.")
+        
+    try:
+        # Create person
+        person_id = await create_person(request.name, request.folder_name)
+        
+        # Add their average embedding
+        avg_embedding = np.array(cluster["avg_embedding"], dtype=np.float32)
+        await add_person_embedding(person_id, avg_embedding)
+        
+        # Copy the first thumbnail to make it their registry face
+        if cluster["thumbnails"]:
+            src_thumb = _get_thumbnails_dir() / cluster["thumbnails"][0]
+            if src_thumb.exists():
+                dst_thumb = get_thumbnails_dir() / f"{person_id}.jpg"
+                import shutil
+                shutil.copy2(src_thumb, dst_thumb)
+                
+        return {"status": "ok", "person_id": person_id, "name": request.name}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
