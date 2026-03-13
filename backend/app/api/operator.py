@@ -718,3 +718,48 @@ async def register_discovered_person(request: DiscoveryRegisterRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ============================================================================
+# Export API
+# ============================================================================
+
+@router.post("/persons/{person_id}/export")
+async def export_person_zip(person_id: int, background_tasks: BackgroundTasks):
+    """
+    Generate a ZIP archive of a person's segregated photos and return it.
+    The ZIP is saved to the internal SSD and deleted after download.
+    """
+    from ..engine.export import create_person_export_zip
+    
+    # 1. Check if person exists
+    person = await get_person_by_id(person_id)
+    if not person:
+        raise HTTPException(status_code=404, detail="Person not found")
+
+    # 2. Generate ZIP file
+    try:
+        zip_path = await create_person_export_zip(person_id)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate ZIP: {str(e)}")
+
+    if not zip_path.exists():
+        raise HTTPException(status_code=500, detail="ZIP file was not created successfully")
+
+    # 3. Schedule deletion of ZIP after it's been served
+    def _cleanup_zip(path: Path):
+        try:
+            if path.exists():
+                os.remove(path)
+        except Exception as e:
+            print(f"Failed to cleanup temp zip {path}: {e}")
+
+    background_tasks.add_task(_cleanup_zip, zip_path)
+
+    # 4. Return the file
+    return FileResponse(
+        path=zip_path,
+        media_type="application/zip",
+        filename=zip_path.name
+    )
+
