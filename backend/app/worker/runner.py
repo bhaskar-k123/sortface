@@ -13,6 +13,8 @@ from ..db.db import init_database
 from ..db.jobs import get_job_config, get_pending_batches, get_job_status, set_job_status
 from ..engine.batch_engine import BatchEngine
 from ..state.state_writer import StateWriter
+from ..utils.logger import get_logger
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeRemainingColumn
 
 
 class WorkerRunner:
@@ -28,6 +30,7 @@ class WorkerRunner:
     """
     
     def __init__(self):
+        self.logger = get_logger("worker")
         self.state_writer = StateWriter()
         self.batch_engine: BatchEngine | None = None
         self.running = True
@@ -62,7 +65,7 @@ class WorkerRunner:
                         self._current_status = "waiting_for_config"
                         self._job_initialized = False
                         self.batch_engine = None
-                        print("No job configured. Waiting...")
+                        self.logger.info("No job configured. Waiting...")
                         await asyncio.sleep(3)
                         continue
                     
@@ -75,9 +78,9 @@ class WorkerRunner:
                         self._current_status = "waiting_for_start"
                         self._job_initialized = False
                         if job_status == "stopped":
-                            print("Job stopped. Waiting for start command...")
+                            self.logger.info("Job stopped. Waiting for start command...")
                         else:
-                            print("Waiting for job to be started...")
+                            self.logger.info("Waiting for job to be started...")
                         await asyncio.sleep(3)
                         continue
                     
@@ -87,7 +90,7 @@ class WorkerRunner:
                         self._current_status = "discovering_images"
                         
                         # Always clear old job data for fresh start
-                        print("Clearing old job data...")
+                        self.logger.info("Clearing old job data...")
                         await self._clear_old_job_data()
                         
                         print(f"Discovering images in: {job_config['source_root']}")
@@ -130,29 +133,43 @@ class WorkerRunner:
                             print("  Supported formats: .jpg, .jpeg, .arw")
                     
                     # Get next pending batch
-                    batch = await get_pending_batches(limit=1)
+                    batches = await get_pending_batches(limit=1)
                     
-                    if not batch:
+                    if not batches:
                         self._current_status = "completed"
-                        print("All batches completed!")
+                        self.logger.info("[bold green]All batches completed![/bold green]")
                         await set_job_status("completed")
                         self._job_initialized = False  # Allow restart
                         await asyncio.sleep(5)
                         continue
                     
-                    batch = batch[0]
-                    
-                    # Process the batch
+                    # Process the batch with a progress bar
+                    batch = batches[0]
                     self._current_status = f"processing_batch_{batch['batch_id']}"
-                    print(f"Processing batch {batch['batch_id']}...")
-                    result = await self.batch_engine.process_batch(batch["batch_id"])
-                    print(f"Batch {batch['batch_id']} completed: {result}")
+                    
+                    with Progress(
+                        SpinnerColumn(),
+                        TextColumn("[progress.description]{task.description}"),
+                        BarColumn(),
+                        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+                        TimeRemainingColumn(),
+                        expand=True
+                    ) as progress:
+                        task_id = progress.add_task(f"Processing Batch {batch['batch_id']}", total=100)
+                        
+                        # Use a small background task to update progress (mocked since batch_engine is opaque)
+                        # In a real scenario, batch_engine would take a callback
+                        progress.update(task_id, advance=10)
+                        result = await self.batch_engine.process_batch(batch["batch_id"])
+                        progress.update(task_id, completed=100)
+                    
+                    self.logger.info(f"Batch {batch['batch_id']} completed: {result}")
                     
                 except Exception as e:
                     self._current_status = f"error: {str(e)[:50]}"
-                    print(f"Error in worker loop: {e}")
+                    self.logger.error(f"Error in worker loop: {e}")
                     import traceback
-                    traceback.print_exc()
+                    self.logger.error(traceback.format_exc())
                     
                     # CRITICAL FIX: Reset batch state if we were processing one
                     # Otherwise it stays stuck in PROCESSING and is never retried
@@ -160,10 +177,10 @@ class WorkerRunner:
                         try:
                             # Import here to avoid circular dependencies if any, though top-level is better
                             from ..db.jobs import update_batch_state, BatchState
-                            print(f"  ⚠ Resetting batch {batch['batch_id']} to PENDING due to error")
+                            self.logger.warning(f"  ⚠ Resetting batch {batch['batch_id']} to PENDING due to error")
                             await update_batch_state(batch["batch_id"], BatchState.PENDING)
                         except Exception as reset_error:
-                            print(f"  Failed to reset batch state: {reset_error}")
+                            self.logger.error(f"  Failed to reset batch state: {reset_error}")
                             
                     await asyncio.sleep(5)
         finally:
@@ -185,7 +202,7 @@ class WorkerRunner:
             try:
                 self._write_heartbeat()
             except Exception as e:
-                print(f"Heartbeat error: {e}")
+                self.logger.error(f"Heartbeat error: {e}")
             await asyncio.sleep(3)
     
     async def _clear_old_job_data(self):
@@ -206,7 +223,7 @@ class WorkerRunner:
         # Clear state files
         self.state_writer.clear_batch_states()
         
-        print("Old job data cleared.")
+        self.logger.info("Old job data cleared.")
     
     async def _resume_interrupted(self):
         """
@@ -222,11 +239,11 @@ class WorkerRunner:
             BatchState,
         )
         
-        print("Running resume logic...")
+        self.logger.info("Running resume logic...")
         
         processing = await get_batches_by_state(BatchState.PROCESSING)
         for b in processing:
-            print(f"  Resetting batch {b['batch_id']} from PROCESSING to PENDING")
+            self.logger.info(f"  Resetting batch {b['batch_id']} from PROCESSING to PENDING")
             await update_batch_state(b["batch_id"], BatchState.PENDING)
         
         committing = await get_batches_by_state(BatchState.COMMITTING)
@@ -241,42 +258,42 @@ class WorkerRunner:
                     state_writer=self.state_writer,
                 )
                 for b in committing:
-                    print(f"  Finishing batch {b['batch_id']} (was COMMITTING)")
+                    self.logger.info(f"  Finishing batch {b['batch_id']} (was COMMITTING)")
                     await be._commit_batch(b["batch_id"])
             else:
-                print("  No output_root in config; cannot finish COMMITTING batches")
-        print("Resume logic complete.")
+                self.logger.warning("  No output_root in config; cannot finish COMMITTING batches")
+        self.logger.info("Resume logic complete.")
     
     def _display_cpu_usage_info(self):
         """Display CPU usage configuration and warnings."""
-        import os
+        from ..utils.logger import console
+        from rich.table import Table
+        from rich.panel import Panel
         
         cpu_count = os.cpu_count() or 4
         worker_count = settings.get_worker_count()
         usage_percent = (worker_count / cpu_count) * 100
         
-        print("\n" + "="*60)
-        print("PARALLEL PROCESSING CONFIGURATION")
-        print("="*60)
-        print(f"CPU Cores Available: {cpu_count}")
-        print(f"CPU Usage Mode: {settings.cpu_usage_mode}")
-        print(f"Workers: {worker_count}")
-        print(f"Estimated CPU Usage: ~{usage_percent:.0f}%")
+        table = Table(show_header=False, box=None, padding=(0, 1))
+        table.add_row("[cyan]CPU Cores Available:[/]", f"{cpu_count}")
+        table.add_row("[cyan]CPU Usage Mode:[/]", f"{settings.cpu_usage_mode}")
+        table.add_row("[cyan]Workers:[/]", f"{worker_count}")
+        table.add_row("[cyan]Estimated CPU Usage:[/]", f"~{usage_percent:.0f}%")
         
         # Display warning if applicable
         warning = settings.get_cpu_usage_warning()
+        content = [table]
         if warning:
-            print(f"\n{warning}")
+            content.append(f"\n[bold yellow]{warning}[/bold yellow]")
         else:
-            print(f"\n✅ CPU usage is within comfortable limits.")
-        
-        print("\nTo change CPU usage:")
-        print("  - Edit hot_storage/config or set environment variable:")
-        print("    CPU_USAGE_MODE=low      (2 workers, ~40% CPU)")
-        print("    CPU_USAGE_MODE=balanced (4 workers, ~67% CPU)")
-        print("    CPU_USAGE_MODE=high     (max workers, ~90% CPU)")
-        print("    CPU_USAGE_MODE=adaptive (auto-detect based on cores)")
-        print("="*60 + "\n")
+            content.append("\n[bold green]✅ CPU usage is within comfortable limits.[/bold green]")
+            
+        console.print(Panel(
+            *content,
+            title="[bold blue]Parallel Processing Configuration[/bold blue]",
+            expand=False,
+            border_style="blue"
+        ))
     
     def _write_heartbeat(self):
         """Write heartbeat file for status monitoring."""
