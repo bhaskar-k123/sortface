@@ -13,6 +13,7 @@ A production-grade, offline system for sorting large event photo datasets (~16,0
 - **External HDD safe**: Read-only source, append-only output
 - **Progress tracking**: Real-time timer with elapsed time and ETA
 - **Adaptive CPU usage**: Low/balanced/high/adaptive modes for concurrent task tuning
+- **Beautified terminal**: Colorized logs, status panels, and real-time progress bars via `rich`
 
 ## Quick Start
 
@@ -445,6 +446,8 @@ Image_Segregation/
     │   │       └── tracker.py
     │   ├── middleware/            # Centralized middleware
     │   │   └── error_handler.py   # Error handling
+    │   ├── utils/                 # Utility functions
+    │   │   └── logger.py          # Rich-based logging system
     │   ├── db/
     │   │   ├── schema.sql         # Database schema
     │   │   ├── db.py              # Connection handling
@@ -505,6 +508,7 @@ Key settings:
 | **RAW Processing** | [rawpy](https://github.com/letmaik/rawpy) | Sony ARW file conversion |
 | **Array Operations** | [NumPy](https://numpy.org/) | Embedding math & image arrays |
 | **Async HTTP** | [aiofiles](https://github.com/Tinche/aiofiles) | Async file operations |
+| **Terminal** | [rich](https://github.com/Textualize/rich) | Colorized logs & progress bars |
 | **Frontend** | Vanilla HTML/CSS/JS | No framework dependencies |
 
 ---
