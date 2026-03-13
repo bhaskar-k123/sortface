@@ -228,6 +228,10 @@
                                 <i data-lucide="user-plus" class="icon icon-sm"></i>
                                 <span>Add New Person</span>
                             </button>
+                            <button class="btn btn-subtle-apple btn-sm" onclick="openAutoDiscoveryModal()" style="margin-top: 5px;">
+                                <i data-lucide="sparkles" class="icon icon-sm"></i>
+                                <span>Auto-Discovery</span>
+                            </button>
                         </div>
                     </div>
 
@@ -431,6 +435,57 @@
                     <button class="btn" onclick="closeCameraModal()"><i data-lucide="x" class="icon icon-sm"></i>Cancel</button>
                     <button type="button" class="btn btn-primary" onclick="confirmCameraCaptures()"><i data-lucide="check" class="icon icon-sm"></i>Confirm (<span id="camera-capture-count">0</span>)</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auto-Discovery Modal -->
+    <div id="auto-discovery-modal" class="modal" style="display: none; z-index: 1060;">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3><i data-lucide="sparkles" class="icon"></i>Auto-Discovery</h3>
+                <button class="modal-close" onclick="closeAutoDiscoveryModal()"><i data-lucide="x" class="icon"></i></button>
+            </div>
+            
+            <div class="modal-body">
+                <!-- Config & Progress View -->
+                <div id="discovery-config-view">
+                    <p class="panel-description">Automatically discover frequent faces in your source directory. The system will sample a subset of images, cluster the faces, and present the distinct individuals here.</p>
+                    
+                    <div class="form-group" style="max-width: 300px; margin-bottom: 20px;">
+                        <label for="discovery-sample-size">Images to Sample</label>
+                        <input type="number" id="discovery-sample-size" value="500" min="50" max="10000" step="50">
+                        <small>Higher numbers take longer but find more people.</small>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <button type="button" class="btn btn-primary" id="btn-start-discovery" onclick="startDiscovery()">
+                            <i data-lucide="play" class="icon icon-sm"></i> Start Discovery Pass
+                        </button>
+                    </div>
+
+                    <div id="discovery-progress-container" style="display: none; margin-top: 20px;">
+                        <p id="discovery-status-text" style="font-weight: 500; margin-bottom: 5px;">Starting...</p>
+                        <div class="progress-display" style="margin-bottom: 10px;">
+                            <div class="progress-bar-wrap">
+                                <div id="discovery-progress-bar" class="progress-bar" style="width: 0%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results View -->
+                <div id="discovery-results-view" style="display: none;">
+                    <p class="panel-description">The following distinct faces were discovered. Name them below to register them in the system.</p>
+                    
+                    <div id="discovery-clusters-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; margin-top: 15px; max-height: 60vh; overflow-y: auto; padding-right: 10px;">
+                        <!-- Clusters injected here by JS -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-footer" id="discovery-modal-footer">
+                <button class="btn" onclick="closeAutoDiscoveryModal()"><i data-lucide="x" class="icon icon-sm"></i>Close</button>
             </div>
         </div>
     </div>

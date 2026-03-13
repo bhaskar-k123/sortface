@@ -1657,3 +1657,168 @@ async function confirmCameraCaptures() {
     }
 }
 
+// ============================================================================
+// Auto-Discovery
+// ============================================================================
+
+let discoveryPollInterval = null;
+
+function openAutoDiscoveryModal() {
+    const modal = document.getElementById('auto-discovery-modal');
+    document.getElementById('discovery-config-view').style.display = 'block';
+    document.getElementById('discovery-results-view').style.display = 'none';
+    document.getElementById('discovery-progress-container').style.display = 'none';
+    document.getElementById('discovery-status-text').textContent = 'Starting...';
+    document.getElementById('discovery-progress-bar').style.width = '0%';
+    document.getElementById('btn-start-discovery').disabled = false;
+    
+    modal.style.display = 'flex';
+    if (window.Animations) Animations.modalOpen(modal);
+}
+
+function closeAutoDiscoveryModal() {
+    const modal = document.getElementById('auto-discovery-modal');
+    if (discoveryPollInterval) {
+        clearInterval(discoveryPollInterval);
+        discoveryPollInterval = null;
+    }
+    if (window.Animations) {
+        Animations.modalClose(modal);
+    } else {
+        modal.style.display = 'none';
+    }
+}
+
+async function startDiscovery() {
+    const sampleSize = parseInt(document.getElementById('discovery-sample-size').value, 10) || 500;
+    
+    document.getElementById('btn-start-discovery').disabled = true;
+    document.getElementById('discovery-progress-container').style.display = 'block';
+    
+    try {
+        const r = await fetch('/api/operator/discovery/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sample_size: sampleSize })
+        });
+        
+        if (!r.ok) {
+            const err = await r.json();
+            throw new Error(err.detail || 'Failed to start discovery');
+        }
+        
+        // Start polling
+        if (discoveryPollInterval) clearInterval(discoveryPollInterval);
+        discoveryPollInterval = setInterval(pollDiscoveryStatus, 1000);
+        
+    } catch (e) {
+        document.getElementById('discovery-status-text').textContent = 'Error: ' + e.message;
+        document.getElementById('btn-start-discovery').disabled = false;
+    }
+}
+
+async function pollDiscoveryStatus() {
+    try {
+        const r = await fetch('/api/operator/discovery/status');
+        const state = await r.json();
+        
+        document.getElementById('discovery-status-text').textContent = state.message;
+        document.getElementById('discovery-progress-bar').style.width = state.progress + '%';
+        
+        if (state.status === 'completed') {
+            clearInterval(discoveryPollInterval);
+            discoveryPollInterval = null;
+            renderDiscoveryResults(state.results);
+        } else if (state.status === 'failed') {
+            clearInterval(discoveryPollInterval);
+            discoveryPollInterval = null;
+            document.getElementById('btn-start-discovery').disabled = false;
+        }
+    } catch (e) {
+        console.error('Error polling discovery status:', e);
+    }
+}
+
+function renderDiscoveryResults(clusters) {
+    document.getElementById('discovery-config-view').style.display = 'none';
+    document.getElementById('discovery-results-view').style.display = 'block';
+    
+    const grid = document.getElementById('discovery-clusters-grid');
+    if (!clusters || clusters.length === 0) {
+        grid.innerHTML = '<p>No distinct people found with enough faces.</p>';
+        return;
+    }
+    
+    let html = '';
+    clusters.forEach(c => {
+        let thumbsHtml = '';
+        c.thumbnails.forEach(filename => {
+            thumbsHtml += `<img src="/api/operator/discovery/thumbnail/${filename}" alt="Discovered Face" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-color);">`;
+        });
+        
+        html += `
+            <div class="panel" style="padding: 15px; display: flex; flex-direction: column; gap: 10px; background: var(--bg-secondary);" id="discovery-cluster-${c.cluster_id}">
+                <div style="display: flex; gap: 5px; overflow-x: auto; padding-bottom: 5px;">
+                    ${thumbsHtml}
+                </div>
+                <div style="font-size: 0.85rem; color: var(--text-secondary);"><i data-lucide="image" class="icon icon-sm"></i> Found ${c.face_count} times</div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <input type="text" id="discovery-name-${c.cluster_id}" placeholder="Person Name" style="margin-bottom: 5px;" onkeypress="if(event.key==='Enter') registerDiscoveredPerson(${c.cluster_id})">
+                    <button class="btn btn-primary btn-sm" style="width: 100%;" onclick="registerDiscoveredPerson(${c.cluster_id})">Register</button>
+                </div>
+            </div>
+        `;
+    });
+    
+    grid.innerHTML = html;
+    lucide.createIcons();
+}
+
+async function registerDiscoveredPerson(clusterId) {
+    const nameInput = document.getElementById(`discovery-name-${clusterId}`);
+    const name = nameInput.value.trim();
+    
+    if (!name) {
+        alert("Please enter a name for this person.");
+        return;
+    }
+    
+    // Auto-generate a safe folder name
+    const folderName = name.trim().toLowerCase().replace(/[^a-z0-9_]/ig, '_').replace(/_+/g, '_');
+    
+    const btn = nameInput.nextElementSibling;
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="loader-2" class="icon icon-sm spin"></i> Saving...';
+    lucide.createIcons();
+    
+    try {
+        const r = await fetch('/api/operator/discovery/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cluster_id: clusterId, name: name, folder_name: folderName })
+        });
+        
+        if (!r.ok) {
+            const err = await r.json();
+            throw new Error(err.detail || 'Failed to register person');
+        }
+        
+        // Success: hide the cluster card
+        const card = document.getElementById(`discovery-cluster-${clusterId}`);
+        if (card) {
+            card.style.opacity = '0.5';
+            card.style.pointerEvents = 'none';
+            btn.innerHTML = '<i data-lucide="check" class="icon icon-sm"></i> Registered';
+            lucide.createIcons();
+        }
+        
+        // Refresh registry in background
+        loadPersons();
+        loadRegistryCard();
+        
+    } catch (e) {
+        alert("Error registering person: " + e.message);
+        btn.disabled = false;
+        btn.innerHTML = 'Register';
+    }
+}
