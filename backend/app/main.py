@@ -65,12 +65,25 @@ async def system_info():
     Get system configuration info.
     Useful for debugging and diagnostics.
     """
+    # Detect available hardware accelerator
+    active_provider = "CPU"
+    try:
+        import onnxruntime
+        providers = onnxruntime.get_available_providers()
+        if 'CUDAExecutionProvider' in providers:
+            active_provider = 'CUDA'
+        elif 'DmlExecutionProvider' in providers:
+            active_provider = 'DirectML'
+    except Exception:
+        pass
+        
     return {
         "version": "1.0.0",
         "hot_storage_root": str(settings.hot_storage_root.absolute()),
         "batch_size": settings.atomic_batch_size,
         "cpu_mode": settings.cpu_usage_mode,
         "worker_count": settings.get_worker_count(),
+        "active_provider": active_provider,
         "thresholds": {
             "strict": settings.threshold_strict,
             "loose": settings.threshold_loose

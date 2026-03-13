@@ -23,7 +23,9 @@ document.addEventListener('DOMContentLoaded', () => {
     loadProgress();
     loadRegistryCard();
     checkWorkerStatus();
+    checkSystemInfo();
     setInterval(checkWorkerStatus, 3000);
+    setInterval(checkSystemInfo, 10000);
     setInterval(refreshJobAndProgress, 1000);
     setupJobConfigForm();
     setupSeedPersonForm();
@@ -503,6 +505,42 @@ async function checkWorkerStatus() {
         }
     } catch (error) {
         console.error('Error checking worker status:', error);
+    }
+}
+
+/**
+ * Check system info (hardware acceleration)
+ */
+async function checkSystemInfo() {
+    try {
+        const response = await fetch('/api/info');
+        if (!response.ok) return;
+        const data = await response.json();
+        
+        const badge = document.getElementById('hw-accel-badge');
+        const text = document.getElementById('hw-accel-text');
+        const icon = document.getElementById('hw-accel-icon');
+        
+        if (badge && text && icon) {
+            badge.style.display = 'flex';
+            const provider = data.active_provider || 'CPU';
+            text.textContent = provider;
+            
+            if (provider !== 'CPU') {
+                icon.setAttribute('data-lucide', 'zap');
+                icon.style.color = 'var(--accent-yellow)';
+                badge.style.borderColor = 'var(--accent-yellow)';
+                badge.style.backgroundColor = 'rgba(255, 214, 10, 0.1)';
+            } else {
+                icon.setAttribute('data-lucide', 'cpu');
+                icon.style.color = 'var(--text-secondary)';
+                badge.style.borderColor = 'var(--border-color)';
+                badge.style.backgroundColor = 'var(--bg-secondary)';
+            }
+            lucide.createIcons({ nameAttr: 'data-lucide' });
+        }
+    } catch (error) {
+        console.error('Error checking system info:', error);
     }
 }
 

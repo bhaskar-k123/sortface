@@ -100,9 +100,15 @@
 
                     <!-- Integrated Footer for Worker Status -->
                     <div class="worker-status-banner">
-                        <div class="worker-connection">
-                            <div id="worker-dot-v2" class="connection-dot offline"></div>
-                            <span id="worker-text-v2">Worker Offline</span>
+                        <div style="display: flex; gap: 1rem; align-items: center;">
+                            <div class="worker-connection">
+                                <div id="worker-dot-v2" class="connection-dot offline"></div>
+                                <span id="worker-text-v2">Worker Offline</span>
+                            </div>
+                            <div class="acceleration-badge" id="hw-accel-badge" style="display: none; align-items: center; gap: 0.25rem; font-size: 0.8rem; background: var(--bg-secondary); padding: 2px 6px; border-radius: 4px; color: var(--text-secondary); border: 1px solid var(--border-color);" title="Hardware Acceleration">
+                                <i data-lucide="zap" class="icon icon-sm" id="hw-accel-icon" style="color: var(--accent-yellow);"></i>
+                                <span id="hw-accel-text">CPU</span>
+                            </div>
                         </div>
                         <p id="worker-hint-v2" class="worker-hint-mini">Run <code>python scripts/run_worker.py</code></p>
                     </div>

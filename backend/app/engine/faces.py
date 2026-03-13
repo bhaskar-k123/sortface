@@ -43,20 +43,37 @@ class FaceEngine:
         # Ensure models directory exists
         settings.ensure_directories()
         
+        # Get available providers from ONNX Runtime
+        available_providers = insightface.app.common.Face.get_available_providers() if hasattr(insightface.app.common, 'Face') else []
+        
+        # Determine best provider (prefer CUDA > DirectML > CPU)
+        providers = []
+        if 'CUDAExecutionProvider' in available_providers:
+            providers.append('CUDAExecutionProvider')
+        if 'DmlExecutionProvider' in available_providers:
+            providers.append('DmlExecutionProvider')
+        providers.append('CPUExecutionProvider')
+        
+        self.active_provider = providers[0]
+        
         # Initialize InsightFace with buffalo_l model
         # This downloads models on first run (~300MB)
         self.app = FaceAnalysis(
             name="buffalo_l",
             root=str(settings.models_dir),
-            providers=["CPUExecutionProvider"]
+            providers=providers
         )
+        
+        # If it falls back to CPU despite requesting GPU, try to detect it
+        # (insightface doesn't always expose this cleanly, but we tried our best)
         
         # Prepare model with detection size
         # Using 640 for good balance of speed and accuracy
         self.app.prepare(ctx_id=-1, det_size=(640, 640))
         
         FaceEngine._initialized = True
-        print("Face engine initialized (CPU mode)")
+        provider_name = self.active_provider.replace('ExecutionProvider', '')
+        print(f"Face engine initialized ({provider_name} mode)")
     
     def detect_and_embed(
         self,

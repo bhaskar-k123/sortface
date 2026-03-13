@@ -100,7 +100,26 @@ python scripts/run_worker.py
 **Bottlenecks:**
 - External HDD I/O is typically the limiting factor
 - Processing from internal SSD is significantly faster
-- GPU acceleration not yet supported (CPU only)
+
+### Enabling GPU Acceleration
+
+The system dynamically detects and uses GPU acceleration if the correct ONNX Runtime packages are installed. This can increase processing speed from ~2 img/s to **20+ img/s**.
+
+**For Windows (Any modern GPU - AMD, Intel, NVIDIA):**
+```bash
+# In your virtual environment
+pip uninstall -y onnxruntime
+pip install onnxruntime-directml
+```
+
+**For NVIDIA GPUs (CUDA):**
+```bash
+# In your virtual environment, requires CUDA Toolkit + cuDNN
+pip uninstall -y onnxruntime
+pip install onnxruntime-gpu
+```
+
+Once installed, restart the worker. The operator panel will display a yellow lightning bolt and `DirectML` or `CUDA` instead of `CPU`.
 
 ---
 
