@@ -104,6 +104,14 @@ export function getPersonThumbnailUrl(personId) {
     return `/api/operator/persons/${personId}/thumbnail`;
 }
 
+/**
+ * Export Person Zip
+ * @param {number} personId - Person ID
+ */
+export async function exportPersonZip(personId) {
+    return post(`/operator/persons/${personId}/export`);
+}
+
 // ============================================================================
 // Folder Browser
 // ============================================================================
