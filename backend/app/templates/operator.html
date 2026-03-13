@@ -193,6 +193,7 @@
                                     <th>Person</th>
                                     <th>Folder</th>
                                     <th class="num">Photos</th>
+                                    <th class="action-cell"></th>
                                 </tr>
                             </thead>
                             <tbody id="results-summary-tbody">
@@ -406,8 +407,9 @@
                         </button>
                     </div>
                 </div>
-                <div class="person-details-delete">
+                <div class="person-details-delete" style="display: flex; justify-content: space-between; align-items: center;">
                     <button type="button" class="btn btn-danger" onclick="deletePersonFromDetailsFromModal()"><i data-lucide="trash-2" class="icon icon-sm"></i>Delete Person</button>
+                    <button type="button" id="btn-export-person" class="btn btn-primary" onclick="exportPersonZipFromModal()"><i data-lucide="download" class="icon icon-sm"></i>Export ZIP</button>
                 </div>
             </div>
         </div>

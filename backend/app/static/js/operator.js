@@ -1009,6 +1009,7 @@ async function loadResultsSummary() {
                 + '<td class="person-cell"><img src="/api/operator/persons/' + p.person_id + '/thumbnail" class="results-avatar" alt=""> ' + escapeHtml(p.name) + '</td>'
                 + '<td class="folder">' + escapeHtml(p.folder) + '</td>'
                 + '<td class="num">' + p.photo_count.toLocaleString() + '</td>'
+                + '<td class="action-cell" style="text-align: right;"><button type="button" class="btn btn-subtle-apple btn-sm" onclick="exportPersonZipByPersonId(' + p.person_id + ', this)" style="padding: 2px 8px;"><i data-lucide="download" class="icon icon-sm" style="margin-right:0;"></i></button></td>'
                 + '</tr>';
         });
 
@@ -1016,6 +1017,7 @@ async function loadResultsSummary() {
             + '<td>Total Processed</td>'
             + '<td class="folder"></td>'
             + '<td class="num">' + d.total_processed.toLocaleString() + '</td>'
+            + '<td></td>'
             + '</tr>';
 
         tbody.innerHTML = rows;
@@ -1317,6 +1319,70 @@ async function deletePersonFromDetailsFromModal() {
     if (!pid) return;
     const deleted = await deletePerson(pid, name);
     if (deleted) closePersonDetailsModal();
+}
+
+/**
+ * Export person to ZIP from Person Details modal.
+ */
+async function exportPersonZipFromModal() {
+    const modal = document.getElementById('person-details-modal');
+    if (!modal) return;
+    const pid = modal.dataset.personId ? parseInt(modal.dataset.personId, 10) : null;
+    const name = modal.dataset.personName || '';
+    if (!pid) return;
+    
+    const btn = document.getElementById('btn-export-person');
+    const originalText = btn.innerHTML;
+    
+    try {
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader-2" class="icon icon-sm spin"></i> Exporting...';
+        lucide.createIcons();
+        
+        // Use browser navigation to trigger file download directly from API
+        window.location.href = `/api/operator/persons/${pid}/export`;
+        
+        // Reset button after a reasonable delay (can't easily detect when download starts without complex blobs)
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            lucide.createIcons();
+        }, 2000);
+        
+    } catch (e) {
+        alert('Failed to trigger export. Please ensure the person has segregated photos.');
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        lucide.createIcons();
+    }
+}
+
+/**
+ * Export person to ZIP directly from the Results table or Registry card
+ */
+async function exportPersonZipByPersonId(pid, btn) {
+    if (!pid || !btn) return;
+    
+    const originalHTML = btn.innerHTML;
+    try {
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader-2" class="icon icon-sm spin" style="margin-right:0;"></i>';
+        lucide.createIcons();
+        
+        window.location.href = `/api/operator/persons/${pid}/export`;
+        
+        setTimeout(() => {
+            btn.innerHTML = originalHTML;
+            btn.disabled = false;
+            lucide.createIcons();
+        }, 2000);
+        
+    } catch (e) {
+        alert('Failed to trigger export.');
+        btn.innerHTML = originalHTML;
+        btn.disabled = false;
+        lucide.createIcons();
+    }
 }
 
 function switchPersonRegistryTab(tab) {
