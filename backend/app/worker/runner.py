@@ -269,6 +269,7 @@ class WorkerRunner:
         from ..utils.logger import console
         from rich.table import Table
         from rich.panel import Panel
+        from rich.console import Group
         
         cpu_count = os.cpu_count() or 4
         worker_count = settings.get_worker_count()
@@ -289,7 +290,7 @@ class WorkerRunner:
             content.append("\n[bold green]✅ CPU usage is within comfortable limits.[/bold green]")
             
         console.print(Panel(
-            *content,
+            Group(*content),
             title="[bold blue]Parallel Processing Configuration[/bold blue]",
             expand=False,
             border_style="blue"
