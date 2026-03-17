@@ -86,6 +86,12 @@ async function loadPersons() {
                         <div class="avatar-placeholder" style="display:none;"><i data-lucide="user" class="icon icon-lg"></i></div>
                     </div>
                     <div class="name">${escapeHtml(person.name)}</div>
+                    ${person.photo_count > 0 ? `
+                        <div class="photo-count-badge">
+                            <i data-lucide="check" class="icon icon-sm"></i>
+                            <span>${person.photo_count} photos</span>
+                        </div>
+                    ` : ''}
                 </div>
             `).join('');
             lucide.createIcons();
@@ -144,6 +150,7 @@ function renderRegistryGrid(persons) {
         <div class="registry-thumb-cell" title="${p.name}">
             <img src="/api/operator/persons/${p.person_id}/thumbnail" alt="${p.name}" 
                  onerror="this.parentElement.classList.add('placeholder'); this.innerHTML='<i data-lucide=\\'user\\' class=\\'icon\\'></i>'; lucide.createIcons();">
+            ${p.photo_count > 0 ? `<div class="mini-count-badge">${p.photo_count}</div>` : ''}
         </div>
     `);
     
