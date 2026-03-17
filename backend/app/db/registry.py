@@ -39,7 +39,8 @@ async def get_all_persons() -> list[dict]:
             p.name,
             p.output_folder_rel,
             p.created_at,
-            COUNT(pe.embedding_id) as embedding_count
+            COUNT(DISTINCT pe.embedding_id) as embedding_count,
+            (SELECT COUNT(DISTINCT image_id) FROM commit_log cl WHERE cl.person_id = p.person_id) as photo_count
         FROM persons p
         LEFT JOIN person_embeddings pe ON p.person_id = pe.person_id
         GROUP BY p.person_id
