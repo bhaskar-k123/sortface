@@ -106,3 +106,15 @@ class DeletePersonResponse(BaseModel):
     """Response model for person deletion."""
     deleted: bool
     message: str
+
+
+class UpdatePersonRequest(BaseModel):
+    """Request model for updating person details."""
+    name: str
+    output_folder_rel: str
+
+
+class UpdatePersonResponse(BaseModel):
+    """Response model for person update."""
+    updated: bool
+    message: str

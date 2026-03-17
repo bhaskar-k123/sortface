@@ -12,6 +12,11 @@ from typing import Optional
 from fastapi import APIRouter, File, Form, UploadFile, HTTPException, Query, BackgroundTasks
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
+from .schemas.operator import (
+    UpdatePersonRequest,
+    UpdatePersonResponse,
+    DeletePersonResponse,
+)
 from PIL import Image
 import numpy as np
 
@@ -22,6 +27,7 @@ from ..db.registry import (
     create_person,
     add_person_embedding,
     delete_person,
+    update_person,
 )
 from ..db.jobs import get_job_config, save_job_config, get_job_status, set_job_status
 from ..engine.faces import FaceEngine
@@ -550,6 +556,18 @@ async def remove_person(person_id: int):
         "status": "ok",
         "message": f"Person '{person['name']}' deleted successfully"
     }
+
+
+@router.patch("/persons/{person_id}", response_model=UpdatePersonResponse)
+async def patch_person(person_id: int, request: UpdatePersonRequest):
+    """
+    Update person details (name and output folder).
+    """
+    success = await update_person(person_id, request.name, request.output_folder_rel)
+    if not success:
+        raise HTTPException(status_code=404, detail="Person not found")
+    
+    return {"updated": True, "message": "Person updated successfully"}
 
 
 # ============================================================================

@@ -249,3 +249,21 @@ async def get_person_embeddings(person_id: int) -> list[np.ndarray]:
     
     return [deserialize_embedding(row["embedding"]) for row in rows]
 
+
+async def update_person(person_id: int, name: str, output_folder_rel: str) -> bool:
+    """
+    Update person name and output folder.
+    Returns True if updated, False otherwise.
+    """
+    db = await get_db()
+    
+    cursor = await db.execute(
+        """UPDATE persons 
+           SET name = ?, output_folder_rel = ?, updated_at = datetime('now')
+           WHERE person_id = ?""",
+        (name, output_folder_rel, person_id)
+    )
+    await db.commit()
+    
+    return cursor.rowcount > 0
+
