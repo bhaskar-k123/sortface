@@ -396,8 +396,28 @@
                 <button class="modal-close" onclick="closePersonDetailsModal()"><i data-lucide="x" class="icon"></i></button>
             </div>
             <div class="modal-body">
-                <p class="person-details-row"><span class="label">Output folder:</span> <span id="person-details-folder" class="value">—</span></p>
-                <p class="person-details-row"><span class="label">References:</span> <span id="person-details-embeddings" class="value">—</span></p>
+                <div id="person-details-view-mode">
+                    <p class="person-details-row"><span class="label">Name:</span> <span id="person-details-display-name" class="value" style="font-weight: 600;">—</span></p>
+                    <p class="person-details-row"><span class="label">Output folder:</span> <span id="person-details-folder" class="value">—</span></p>
+                    <p class="person-details-row"><span class="label">References:</span> <span id="person-details-embeddings" class="value">—</span></p>
+                </div>
+
+                <div id="person-details-edit-mode" style="display: none;">
+                    <form id="edit-person-form" class="form">
+                        <div class="form-group">
+                            <label for="edit-person-name">Person Name</label>
+                            <input type="text" id="edit-person-name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-person-folder">Output Folder Name</label>
+                            <input type="text" id="edit-person-folder" required>
+                            <small class="warning-text" style="color: var(--accent-red); display: block; margin-top: 4px;">
+                                <i data-lucide="alert-triangle" class="icon icon-sm"></i> Note: You must manually rename the folder on your disk.
+                            </small>
+                        </div>
+                    </form>
+                </div>
+
                 <div class="add-ref-section">
                     <label class="add-ref-label" for="person-details-ref-input" style="margin-bottom: 0.5rem; display: block;"><i data-lucide="plus" class="icon icon-sm"></i> Add more references (select multiple)</label>
                     <div style="display: flex; gap: 0.5rem; align-items: center;">
@@ -407,9 +427,17 @@
                         </button>
                     </div>
                 </div>
-                <div class="person-details-delete" style="display: flex; justify-content: space-between; align-items: center;">
-                    <button type="button" class="btn btn-danger" onclick="deletePersonFromDetailsFromModal()"><i data-lucide="trash-2" class="icon icon-sm"></i>Delete Person</button>
-                    <button type="button" id="btn-export-person" class="btn btn-primary" onclick="exportPersonZipFromModal()"><i data-lucide="download" class="icon icon-sm"></i>Export ZIP</button>
+
+                <div class="person-details-actions" style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; gap: 0.5rem;">
+                    <div id="view-actions" style="display: flex; gap: 0.5rem; flex: 1;">
+                        <button type="button" class="btn btn-subtle-apple" onclick="togglePersonEditMode(true)"><i data-lucide="edit-3" class="icon icon-sm"></i>Edit</button>
+                        <button type="button" class="btn btn-danger" onclick="deletePersonFromDetailsFromModal()"><i data-lucide="trash-2" class="icon icon-sm"></i>Delete</button>
+                    </div>
+                    <div id="edit-actions" style="display: none; gap: 0.5rem; flex: 1;">
+                        <button type="button" class="btn btn-primary" onclick="savePersonDetails()"><i data-lucide="check" class="icon icon-sm"></i>Save</button>
+                        <button type="button" class="btn" onclick="togglePersonEditMode(false)">Cancel</button>
+                    </div>
+                    <button type="button" id="btn-export-person" class="btn btn-primary" onclick="exportPersonZipFromModal()" style="white-space: nowrap;"><i data-lucide="download" class="icon icon-sm"></i>Export ZIP</button>
                 </div>
             </div>
         </div>

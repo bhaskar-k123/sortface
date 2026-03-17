@@ -1280,13 +1280,127 @@ function openPersonDetailsModal(cardEl) {
     const count = cardEl.dataset.embeddingCount != null ? cardEl.dataset.embeddingCount : '0';
     modal.dataset.personId = id;
     modal.dataset.personName = name;
+    modal.dataset.folder = folder;
+    
     document.getElementById('person-details-name').textContent = name;
+    document.getElementById('person-details-display-name').textContent = name;
     document.getElementById('person-details-folder').innerHTML = '<i data-lucide="folder" class="icon icon-sm"></i> ' + (folder || '—');
     document.getElementById('person-details-embeddings').innerHTML = '<i data-lucide="image" class="icon icon-sm"></i> ' + count + ' reference(s)';
+    
+    // Reset to view mode
+    togglePersonEditMode(false);
+    
     lucide.createIcons();
     const refInput = document.getElementById('person-details-ref-input');
     if (refInput) refInput.value = '';
     Animations.modalOpen(modal);
+}
+
+
+/**
+ * Toggle between view and edit mode in Person Details modal
+ */
+function togglePersonEditMode(edit) {
+    const viewDiv = document.getElementById('person-details-view-mode');
+    const editDiv = document.getElementById('person-details-edit-mode');
+    const viewActions = document.getElementById('view-actions');
+    const editActions = document.getElementById('edit-actions');
+    const nameHeader = document.getElementById('person-details-name');
+    
+    if (!viewDiv || !editDiv || !viewActions || !editActions) return;
+    
+    if (edit) {
+        // Enter Edit Mode
+        viewDiv.style.display = 'none';
+        viewActions.style.display = 'none';
+        editDiv.style.display = 'block';
+        editActions.style.display = 'flex';
+        
+        // Populate inputs
+        const modal = document.getElementById('person-details-modal');
+        document.getElementById('edit-person-name').value = modal.dataset.personName || '';
+        document.getElementById('edit-person-folder').value = modal.dataset.folder || '';
+        
+        if (nameHeader) nameHeader.textContent = 'Edit Person';
+    } else {
+        // Enter View Mode
+        viewDiv.style.display = 'block';
+        viewActions.style.display = 'flex';
+        editDiv.style.display = 'none';
+        editActions.style.display = 'none';
+        
+        const modal = document.getElementById('person-details-modal');
+        if (nameHeader) nameHeader.textContent = modal.dataset.personName || '—';
+    }
+    
+    lucide.createIcons();
+}
+
+
+/**
+ * Save updated person details to the backend
+ */
+async function savePersonDetails() {
+    const modal = document.getElementById('person-details-modal');
+    if (!modal) return;
+    const pid = modal.dataset.personId;
+    if (!pid) return;
+    
+    const newName = document.getElementById('edit-person-name').value.trim();
+    const newFolder = document.getElementById('edit-person-folder').value.trim();
+    
+    if (!newName || !newFolder) {
+        alert('Name and folder are required.');
+        return;
+    }
+    
+    const saveBtn = document.querySelector('#edit-actions .btn-primary');
+    const originalText = saveBtn.innerHTML;
+    
+    try {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i data-lucide="loader-2" class="icon icon-sm spin"></i> Saving...';
+        lucide.createIcons();
+        
+        const response = await fetch(`/api/operator/persons/${pid}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: newName,
+                output_folder_rel: newFolder
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            // Update modal datasets
+            modal.dataset.personName = newName;
+            modal.dataset.folder = newFolder;
+            
+            // Update display elements
+            document.getElementById('person-details-display-name').textContent = newName;
+            document.getElementById('person-details-folder').innerHTML = '<i data-lucide="folder" class="icon icon-sm"></i> ' + newFolder;
+            
+            // Exit edit mode
+            togglePersonEditMode(false);
+            
+            // Refresh main registry grid/list to show new name
+            loadPersons();
+            loadRegistryCard();
+            loadPersonSelection();
+            
+        } else {
+            alert(result.detail || 'Failed to update person.');
+        }
+    } catch (err) {
+        alert('Network error. Please try again.');
+        console.error('Error updating person:', err);
+    } finally {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = originalText;
+        lucide.createIcons();
+    }
 }
 
 function closePersonDetailsModal() {
