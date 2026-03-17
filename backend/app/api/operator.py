@@ -265,6 +265,7 @@ class PersonResponse(BaseModel):
     name: str
     output_folder_rel: str
     embedding_count: int
+    photo_count: int = 0
 
 
 class PersonsListResponse(BaseModel):
@@ -375,7 +376,8 @@ async def list_persons():
             person_id=p["person_id"],
             name=p["name"],
             output_folder_rel=p["output_folder_rel"],
-            embedding_count=p["embedding_count"]
+            embedding_count=p["embedding_count"],
+            photo_count=p.get("photo_count", 0)
         )
         for p in persons
     ])
